@@ -153,7 +153,7 @@ def main() -> None:
 
     try:
         creator.set_logfile_name(args.log_file)
-    except ValueError as exc:
+    except (FileNotFoundError, ValueError) as exc:
         log.error("%s", exc)
         sys.exit(1)
 

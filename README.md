@@ -98,7 +98,7 @@ $ python cli.py flight.tlog --prompt "Plot altitude over time"
 - **Clean Parquet handoff** — only the relevant message types are exported; the LLM sees exact column names, dtypes, min/max ranges — no binary guesswork
 - **Semantic field search** — ChromaDB vector embeddings surface the most relevant message types for your query
 - **Self-healing scripts** — LLM debugs and rewrites failing scripts up to N times; fix prompt also includes the full schema
-- **Sandboxed execution** — generated code runs in an isolated subprocess with a blocked-import denylist and a 30 s timeout
+- **Restricted execution** — generated code runs in a clean subprocess (no API keys in its environment) under a PEP 578 audit hook that blocks process spawning, network access and file writes outside the output folder, with CPU/memory limits and a timeout. This is defence in depth, not a hard security boundary: for untrusted logs or prompts, also run MAVPose in a container
 - **Interactive REPL mode** — omit `--prompt` to enter a live loop; Parquet is re-extracted per query with the relevant types
 - **Configurable model** — drop in any OpenRouter model with a one-line `.env` change
 - **Persisted vector store** — ChromaDB is saved to disk; re-running on the same log skips re-embedding
@@ -117,7 +117,7 @@ $ python cli.py flight.tlog --prompt "Plot altitude over time"
 | Extraction layer | pandas ≥ 2.0 + pyarrow ≥ 14.0 |
 | Drone log parsing | pymavlink 2.4.37 |
 | Plotting | matplotlib 3.7.1 (in generated script) |
-| Sandbox | Custom subprocess executor with import denylist + timeout |
+| Sandbox | Subprocess + PEP 578 audit hook, stripped env, resource limits, timeout |
 | Config | python-dotenv |
 | Lint / CI | ruff + pytest + GitHub Actions |
 
@@ -237,7 +237,7 @@ MAVPose/
 ├── llm/
 │   ├── log_extractor.py           # 🆕 Headless extraction layer (LogExtractor)
 │   ├── gptPlotCreator.py          # PlotCreator — orchestrates both phases
-│   ├── safe_executor.py           # Subprocess sandbox with import denylist
+│   ├── safe_executor.py           # Restricted subprocess executor (audit hook + limits)
 │   └── file_validator.py          # File validation (extension, size, symlink)
 ├── tests/
 │   ├── test_log_extractor.py      # 🆕 Unit tests for LogExtractor
