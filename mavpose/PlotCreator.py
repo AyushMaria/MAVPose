@@ -28,7 +28,6 @@ import json
 import logging
 import os
 import re
-import subprocess
 from typing import Dict, List, Optional
 
 import pandas as pd
@@ -38,11 +37,13 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
+from mavpose.file_validator import VALID_EXTENSIONS, validate_mavlink_file
 from mavpose.log_extractor import LogExtractor
+from mavpose.safe_executor import execute_script
 
 logger = logging.getLogger(__name__)
 
-VALID_EXTENSIONS = {".tlog", ".bin", ".log"}
+__all__ = ["PlotCreator", "VALID_EXTENSIONS"]
 
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 DEFAULT_MODEL = "z-ai/glm-5.1"
@@ -59,7 +60,7 @@ class PlotCreator:
         Number of self-healing retries when the generated script fails.
     """
 
-    def __init__(self, max_retries: int = 3) -> None:
+    def __init__(self, max_retries: int = 3, script_timeout: int = 60) -> None:
         load_dotenv()
 
         self.logfile_name: str = ""
@@ -70,6 +71,7 @@ class PlotCreator:
         self.message_types: dict = {}   # schema metadata from schema_only()
         self.db: Optional[Chroma] = None
         self.max_retries: int = max_retries
+        self.script_timeout: int = script_timeout
         self._extractor: Optional[LogExtractor] = None
 
         api_key: str = os.environ["OPENROUTER_API_KEY"]
@@ -164,13 +166,17 @@ class PlotCreator:
     # ------------------------------------------------------------------
 
     def set_logfile_name(self, filename: str) -> None:
-        """Register *filename* as the active log file and derive output paths."""
-        ext = os.path.splitext(filename)[1].lower()
-        if ext not in VALID_EXTENSIONS:
-            raise ValueError(
-                f"Unsupported file type '{ext}'. "
-                f"Expected one of: {', '.join(sorted(VALID_EXTENSIONS))}"
-            )
+        """
+        Validate *filename* and register it as the active log file.
+
+        Raises
+        ------
+        FileNotFoundError
+            The file does not exist.
+        FileValidationError
+            (a ValueError) bad extension, symlink, empty, or too large.
+        """
+        validate_mavlink_file(filename)
         base_dir = os.path.dirname(os.path.abspath(filename))
         self.logfile_name = filename
         self.script_path = os.path.join(base_dir, "plot.py")
@@ -387,42 +393,43 @@ class PlotCreator:
 
     def run_script(self) -> tuple:
         """
-        Execute the generated plot script.
+        Execute the generated plot script in the restricted executor.
 
-        Self-heals up to self.max_retries times on failure.
+        The script may only write inside the plot's output directory, runs
+        without access to API keys, and is killed after
+        ``self.script_timeout`` seconds.  Self-heals up to
+        ``self.max_retries`` times on failure.
 
         Returns
         -------
         ([(None, (plot_path,))], last_code)
         """
+        output_dir = os.path.dirname(os.path.abspath(self.plot_path))
         for attempt in range(1, self.max_retries + 1):
-            try:
-                subprocess.check_output(
-                    ["python", self.script_path], stderr=subprocess.STDOUT
-                )
+            with open(self.script_path, "r", encoding="utf-8") as fh:
+                code = fh.read()
+
+            success, output = execute_script(
+                code,
+                timeout_seconds=self.script_timeout,
+                allowed_write_dirs=[output_dir],
+            )
+            if success:
                 logger.info("Script succeeded on attempt %d.", attempt)
                 break
-            except subprocess.CalledProcessError as exc:
-                error_text = exc.output.decode(errors="replace")
-                logger.warning(
-                    "Script attempt %d/%d failed:\n%s",
-                    attempt, self.max_retries, error_text,
+
+            logger.warning(
+                "Script attempt %d/%d failed:\n%s",
+                attempt, self.max_retries, output,
+            )
+            if attempt < self.max_retries:
+                self.last_code = self.attempt_to_fix_script(output)
+            else:
+                logger.error("All %d attempts exhausted.", self.max_retries)
+                self.last_code = (
+                    f"# All {self.max_retries} fix attempts failed.\n"
+                    f"# Last error:\n# {output}\n\n"
+                    + self.last_code
                 )
-                if attempt < self.max_retries:
-                    self.last_code = self.attempt_to_fix_script(error_text)
-                else:
-                    logger.error("All %d attempts exhausted.", self.max_retries)
-                    self.last_code = (
-                        f"# All {self.max_retries} fix attempts failed.\n"
-                        f"# Last error:\n# {error_text}\n\n"
-                        + self.last_code
-                    )
-            except Exception as exc:
-                logger.error("Unexpected error running script: %s", exc)
-                if attempt < self.max_retries:
-                    self.last_code = self.attempt_to_fix_script(str(exc))
-                else:
-                    self.last_code = f"# Unexpected error: {exc}\n\n" + self.last_code
-                    break
 
         return [[(None, (self.plot_path,))]], self.last_code
