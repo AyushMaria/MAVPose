@@ -1,12 +1,11 @@
 """
 tests/test_safe_executor.py
 
-Unit tests for llm/safe_executor.py.
-Verifies that the RestrictedPython sandbox correctly allows safe code
+Unit tests for mavpose/safe_executor.py.
+Verifies that the subprocess sandbox correctly allows safe code
 and blocks dangerous imports and operations.
 """
 
-import pytest
 from mavpose.safe_executor import execute_script
 
 
