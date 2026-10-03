@@ -143,3 +143,20 @@ class TestSandboxHardening:
         success, output = execute_script(code, allowed_write_dirs=[str(tmp_path)])
         assert success, output
         assert png.exists()
+
+    def test_ctypes_via_library_blocked_after_import(self):
+        code = "import numpy.ctypeslib\nnumpy.ctypeslib.ctypes.CDLL(None)\n"
+        success, output = execute_script(code)
+        assert not success
+        assert "Blocked by MAVPose sandbox: ctypes." in output
+
+    def test_cannot_import_module_written_by_script(self, tmp_path):
+        code = (
+            f"open({str(tmp_path / 'evil.py')!r}, 'w').write('X = 1')\n"
+            "import inspect\n"
+            f"inspect.sys.path.insert(0, {str(tmp_path)!r})\n"
+            "import evil\n"
+        )
+        success, output = execute_script(code, allowed_write_dirs=[str(tmp_path)])
+        assert not success
+        assert "Blocked by MAVPose sandbox: compile" in output
