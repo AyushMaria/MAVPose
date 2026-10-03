@@ -5,7 +5,6 @@ Unit tests for PlotCreator.extract_code_snippets().
 This is a pure static method with no LLM or file I/O — safe to test without mocking.
 """
 
-import pytest
 from mavpose.PlotCreator import PlotCreator
 
 
