@@ -15,8 +15,10 @@ container or VM as well.  What this module does:
                           size, no core dumps.
   4. Audit hook         — a PEP 578 hook (which cannot be removed once
                           installed) denies process creation, sockets,
-                          ctypes, and any file write / delete / rename
-                          outside the allowed output directories.  Unlike
+                          ctypes (outside library imports), and any file
+                          write / delete / rename outside the allowed
+                          output directories.  Writable directories are
+                          removed from sys.path and cannot be imported from.  Unlike
                           an import denylist, this also catches dangerous
                           calls reached through allowed libraries
                           (e.g. ``pandas.io.common.os.system``).
@@ -81,11 +83,16 @@ _DENIED_EVENTS = (
     "os.startfile",
     "pty.spawn",
     "socket.",
-    "ctypes.",
     "urllib.Request",
     "webbrowser.open",
     "winreg.",
 )
+
+# ctypes events are denied except while a library import is in progress:
+# ``import ctypes`` itself calls dlopen(None), and some numeric libraries
+# import ctypes as they load.  Once imports finish, any ctypes use from
+# the script (including via an allowed library's attributes) is denied.
+_IMPORT_TIME_ONLY_EVENTS = ("ctypes.",)
 
 # File-system mutation events whose first argument is a path.
 _PATH_WRITE_EVENTS = (
@@ -119,6 +126,7 @@ _RUNNER = textwrap.dedent("""\
         script = {script!r}
         blocked = {blocked!r}
         denied = {denied!r}
+        import_only = {import_only!r}
         path_write = {path_write!r}
         path_pair = {path_pair!r}
         allowed = tuple(os.path.realpath(p) for p in {allowed!r})
@@ -127,6 +135,8 @@ _RUNNER = textwrap.dedent("""\
         getframe = sys._getframe
         realpath = os.path.realpath
         fsdecode = os.fsdecode
+        isfile = os.path.isfile
+        import_depth = [0]
 
         def safe_import(name, *args, **kwargs):
             if name.split(".")[0] in blocked:
@@ -135,7 +145,11 @@ _RUNNER = textwrap.dedent("""\
                     raise ImportError(
                         "Import '" + name + "' is not allowed in this sandbox."
                     )
-            return real_import(name, *args, **kwargs)
+            import_depth[0] += 1
+            try:
+                return real_import(name, *args, **kwargs)
+            finally:
+                import_depth[0] -= 1
 
         def is_allowed(path):
             if isinstance(path, int):  # already-open file descriptor
@@ -153,7 +167,18 @@ _RUNNER = textwrap.dedent("""\
             for d in denied:
                 if event == d or (d.endswith(".") and event.startswith(d)):
                     deny(event)
-            if event == "open":
+            if import_depth[0] == 0:
+                for d in import_only:
+                    if event.startswith(d):
+                        deny(event)
+            if event == "compile":
+                # Block importing modules the script wrote itself into a
+                # writable directory (which would run inside an import).
+                filename = args[1] if len(args) > 1 else None
+                if (isinstance(filename, (str, bytes)) and filename != script
+                        and isfile(filename) and is_allowed(filename)):
+                    deny("compile " + fsdecode(filename))
+            elif event == "open":
                 path, mode, flags = (tuple(args) + (None, None, None))[:3]
                 writing = (
                     (isinstance(mode, str) and any(c in mode for c in "wax+"))
@@ -169,6 +194,11 @@ _RUNNER = textwrap.dedent("""\
                     if not is_allowed(p):
                         deny(event + " " + str(p))
 
+        # Writable directories must never be importable.
+        sys.path[:] = [
+            p for p in sys.path
+            if p and not is_allowed(p)
+        ]
         builtins.__import__ = safe_import
         sys.addaudithook(hook)
 
@@ -212,6 +242,7 @@ def build_runner(script_path: str, allowed_write_dirs: Iterable[str]) -> str:
         script=script_path,
         blocked=sorted(BLOCKED_MODULES),
         denied=_DENIED_EVENTS,
+        import_only=_IMPORT_TIME_ONLY_EVENTS,
         path_write=_PATH_WRITE_EVENTS,
         path_pair=_PATH_PAIR_EVENTS,
         allowed=[os.path.abspath(d) for d in allowed_write_dirs],
