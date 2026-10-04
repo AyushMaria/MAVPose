@@ -1,0 +1,1809 @@
+{
+ "_source": "https://github.com/PX4/PX4-Autopilot @ 9fda8a5 (msg/*.msg field annotations [unit] [@invalid X])",
+ "_generator": "tools/gen_px4_field_info.py",
+ "_excluded_invalid": [
+  "cellular_status.link_rx_rate",
+  "cellular_status.link_tx_rate"
+ ],
+ "topics": {
+  "action_request": {
+   "timestamp": {
+    "unit": "us"
+   }
+  },
+  "actuator_motors": {
+   "timestamp": {
+    "unit": "us"
+   },
+   "timestamp_sample": {
+    "unit": "us"
+   }
+  },
+  "actuator_servos": {
+   "timestamp": {
+    "unit": "us"
+   },
+   "timestamp_sample": {
+    "unit": "us"
+   }
+  },
+  "adc_report": {
+   "timestamp": {
+    "unit": "us"
+   },
+   "v_ref": {
+    "unit": "V"
+   }
+  },
+  "airspeed": {
+   "indicated_airspeed_m_s": {
+    "unit": "m/s"
+   },
+   "timestamp": {
+    "unit": "us"
+   },
+   "timestamp_sample": {
+    "unit": "us"
+   },
+   "true_airspeed_m_s": {
+    "unit": "m/s"
+   }
+  },
+  "airspeed_validated": {
+   "airspeed_derivative_filtered": {
+    "unit": "m/s^2"
+   },
+   "calibraded_airspeed_synth_m_s": {
+    "unit": "m/s"
+   },
+   "calibrated_airspeed_m_s": {
+    "unit": "m/s"
+   },
+   "calibrated_ground_minus_wind_m_s": {
+    "unit": "m/s"
+   },
+   "indicated_airspeed_m_s": {
+    "unit": "m/s"
+   },
+   "pitch_filtered": {
+    "unit": "rad"
+   },
+   "timestamp": {
+    "unit": "us"
+   },
+   "true_airspeed_m_s": {
+    "unit": "m/s"
+   }
+  },
+  "airspeed_wind": {
+   "beta_innov": {
+    "unit": "rad"
+   },
+   "beta_innov_var": {
+    "unit": "rad^2"
+   },
+   "tas_innov": {
+    "unit": "m/s"
+   },
+   "tas_innov_var": {
+    "unit": "m/s"
+   },
+   "timestamp": {
+    "unit": "us"
+   },
+   "timestamp_sample": {
+    "unit": "us"
+   },
+   "variance_east": {
+    "unit": "(m/s)^2",
+    "invalid": 0
+   },
+   "variance_north": {
+    "unit": "(m/s)^2",
+    "invalid": 0
+   },
+   "windspeed_east": {
+    "unit": "m/s"
+   },
+   "windspeed_north": {
+    "unit": "m/s"
+   }
+  },
+  "arming_check_reply": {
+   "timestamp": {
+    "unit": "us"
+   }
+  },
+  "arming_check_request": {
+   "timestamp": {
+    "unit": "us"
+   }
+  },
+  "autotune_attitude_control_status": {
+   "dt_model": {
+    "unit": "s"
+   },
+   "innov": {
+    "unit": "rad/s"
+   },
+   "rate_sp": {
+    "unit": "rad/s"
+   },
+   "timestamp": {
+    "unit": "us"
+   },
+   "y_filt": {
+    "unit": "rad/s"
+   }
+  },
+  "aux_global_position": {
+   "alt": {
+    "unit": "m"
+   },
+   "eph": {
+    "unit": "m"
+   },
+   "epv": {
+    "unit": "m"
+   },
+   "lat": {
+    "unit": "deg"
+   },
+   "lon": {
+    "unit": "deg"
+   },
+   "timestamp": {
+    "unit": "us"
+   },
+   "timestamp_sample": {
+    "unit": "us"
+   }
+  },
+  "battery_info": {
+   "timestamp": {
+    "unit": "us"
+   }
+  },
+  "battery_status": {
+   "average_time_to_empty": {
+    "unit": "minutes"
+   },
+   "capacity": {
+    "unit": "mAh"
+   },
+   "cell_count": {
+    "invalid": 0
+   },
+   "current_a": {
+    "unit": "A",
+    "invalid": -1
+   },
+   "current_average_a": {
+    "unit": "A",
+    "invalid": -1
+   },
+   "discharged_mah": {
+    "unit": "mAh",
+    "invalid": -1
+   },
+   "full_charge_capacity_wh": {
+    "unit": "Wh"
+   },
+   "internal_resistance_estimate": {
+    "unit": "Ohm"
+   },
+   "max_cell_voltage_delta": {
+    "unit": "V"
+   },
+   "max_error": {
+    "unit": "%"
+   },
+   "nominal_voltage": {
+    "unit": "V"
+   },
+   "ocv_estimate": {
+    "unit": "V"
+   },
+   "ocv_estimate_filtered": {
+    "unit": "V"
+   },
+   "prediction_error": {
+    "unit": "V"
+   },
+   "remaining": {
+    "invalid": -1
+   },
+   "remaining_capacity_wh": {
+    "unit": "Wh"
+   },
+   "scale": {
+    "invalid": -1
+   },
+   "state_of_health": {
+    "unit": "%"
+   },
+   "temperature": {
+    "unit": "degC"
+   },
+   "time_remaining_s": {
+    "unit": "s"
+   },
+   "timestamp": {
+    "unit": "us"
+   },
+   "voltage_cell_v": {
+    "unit": "V",
+    "invalid": 0
+   },
+   "voltage_prediction": {
+    "unit": "V"
+   },
+   "voltage_v": {
+    "unit": "V",
+    "invalid": 0
+   }
+  },
+  "cellular_status": {
+   "band_frequency": {
+    "unit": "MHz",
+    "invalid": 0
+   },
+   "band_number": {
+    "invalid": 0
+   },
+   "channel_number": {
+    "invalid": 0
+   },
+   "lac": {
+    "invalid": 0
+   },
+   "link_rx_rate": {
+    "unit": "KiB/s"
+   },
+   "link_tx_rate": {
+    "unit": "KiB/s"
+   },
+   "mcc": {
+    "invalid": 65535
+   },
+   "mnc": {
+    "invalid": 65535
+   },
+   "quality": {
+    "unit": "%",
+    "invalid": 255
+   },
+   "rx_level": {
+    "unit": "dBm",
+    "invalid": 0
+   },
+   "rx_quality": {
+    "unit": "dBm",
+    "invalid": 0
+   },
+   "sinr": {
+    "unit": "dB",
+    "invalid": 0
+   },
+   "timestamp": {
+    "unit": "us"
+   },
+   "tx_level": {
+    "unit": "dBm",
+    "invalid": 0
+   }
+  },
+  "detect_and_avoid": {
+   "aircraft_dist": {
+    "unit": "m"
+   },
+   "aircraft_dist_hor": {
+    "unit": "m"
+   },
+   "aircraft_dist_vert": {
+    "unit": "m"
+   },
+   "expected_min_dist_time": {
+    "unit": "s"
+   },
+   "timestamp": {
+    "unit": "us"
+   }
+  },
+  "detect_and_avoid_most_urgent": {
+   "aircraft_dist": {
+    "unit": "m"
+   },
+   "timestamp": {
+    "unit": "us"
+   }
+  },
+  "device_information": {
+   "device_id": {
+    "invalid": 0
+   }
+  },
+  "differential_pressure": {
+   "differential_pressure_pa": {
+    "unit": "Pa"
+   },
+   "pitot_temperature": {
+    "unit": "degC"
+   },
+   "temperature": {
+    "unit": "degC"
+   },
+   "timestamp": {
+    "unit": "us"
+   },
+   "timestamp_sample": {
+    "unit": "us"
+   }
+  },
+  "esc_eeprom_read": {
+   "timestamp": {
+    "unit": "us"
+   }
+  },
+  "esc_eeprom_write": {
+   "timestamp": {
+    "unit": "us"
+   }
+  },
+  "esc_report": {
+   "esc_current": {
+    "unit": "A"
+   },
+   "esc_power": {
+    "unit": "%"
+   },
+   "esc_rpm": {
+    "unit": "rpm"
+   },
+   "esc_temperature": {
+    "unit": "degC"
+   },
+   "esc_voltage": {
+    "unit": "V"
+   },
+   "motor_temperature": {
+    "unit": "degC"
+   },
+   "timestamp": {
+    "unit": "us"
+   }
+  },
+  "esc_status": {
+   "timestamp": {
+    "unit": "us"
+   }
+  },
+  "estimator_local_position": {
+   "delta_dist_bottom": {
+    "unit": "m"
+   },
+   "delta_heading": {
+    "unit": "rad"
+   },
+   "delta_vxy": {
+    "unit": "m/s"
+   },
+   "delta_vz": {
+    "unit": "m/s"
+   },
+   "delta_xy": {
+    "unit": "m"
+   },
+   "delta_z": {
+    "unit": "m"
+   }
+  },
+  "estimator_odometry": {
+   "angular_velocity": {
+    "unit": "rad/s"
+   },
+   "orientation_variance": {
+    "unit": "rad^2"
+   },
+   "position": {
+    "unit": "m"
+   },
+   "position_variance": {
+    "unit": "m^2"
+   },
+   "quality": {
+    "invalid": 0
+   },
+   "timestamp": {
+    "unit": "us"
+   },
+   "timestamp_sample": {
+    "unit": "us"
+   },
+   "velocity": {
+    "unit": "m/s"
+   },
+   "velocity_variance": {
+    "unit": "m^2/s^2"
+   }
+  },
+  "estimator_wind": {
+   "beta_innov": {
+    "unit": "rad"
+   },
+   "beta_innov_var": {
+    "unit": "rad^2"
+   },
+   "tas_innov": {
+    "unit": "m/s"
+   },
+   "tas_innov_var": {
+    "unit": "(m/s)^2"
+   },
+   "timestamp": {
+    "unit": "us"
+   },
+   "timestamp_sample": {
+    "unit": "us"
+   },
+   "variance_east": {
+    "unit": "(m/s)^2",
+    "invalid": 0
+   },
+   "variance_north": {
+    "unit": "(m/s)^2",
+    "invalid": 0
+   },
+   "windspeed_east": {
+    "unit": "m/s"
+   },
+   "windspeed_north": {
+    "unit": "m/s"
+   }
+  },
+  "external_gimbal_manager_status": {
+   "timestamp": {
+    "unit": "us"
+   }
+  },
+  "failure_injection": {
+   "timestamp": {
+    "unit": "us"
+   }
+  },
+  "fiducial_marker_pos_report": {
+   "cov_rel_pos": {
+    "unit": "m^2"
+   },
+   "rel_pos": {
+    "unit": "m"
+   },
+   "timestamp": {
+    "unit": "us"
+   },
+   "timestamp_sample": {
+    "unit": "us"
+   }
+  },
+  "fiducial_marker_yaw_report": {
+   "timestamp": {
+    "unit": "us"
+   },
+   "timestamp_sample": {
+    "unit": "us"
+   },
+   "yaw_ned": {
+    "unit": "rad"
+   },
+   "yaw_var_ned": {
+    "unit": "rad^2"
+   }
+  },
+  "figure_eight_status": {
+   "major_radius": {
+    "unit": "m"
+   },
+   "minor_radius": {
+    "unit": "m"
+   },
+   "orientation": {
+    "unit": "rad"
+   }
+  },
+  "fixed_wing_lateral_guidance_status": {
+   "adapted_period": {
+    "unit": "s"
+   },
+   "course_setpoint": {
+    "unit": "rad"
+   },
+   "lateral_acceleration_ff": {
+    "unit": "m/s^2"
+   },
+   "signed_track_error": {
+    "unit": "m"
+   },
+   "switch_distance": {
+    "unit": "m"
+   },
+   "track_error_bound": {
+    "unit": "m"
+   }
+  },
+  "fixed_wing_lateral_setpoint": {
+   "airspeed_direction": {
+    "unit": "rad"
+   },
+   "course": {
+    "unit": "rad"
+   },
+   "lateral_acceleration": {
+    "unit": "m/s^2"
+   },
+   "timestamp": {
+    "unit": "us"
+   }
+  },
+  "fixed_wing_lateral_status": {
+   "lateral_acceleration_setpoint": {
+    "unit": "m/s^2"
+   }
+  },
+  "fixed_wing_longitudinal_setpoint": {
+   "altitude": {
+    "unit": "m"
+   },
+   "equivalent_airspeed": {
+    "unit": "m/s"
+   },
+   "height_rate": {
+    "unit": "m/s"
+   },
+   "pitch_direct": {
+    "unit": "rad"
+   },
+   "timestamp": {
+    "unit": "us"
+   }
+  },
+  "fixed_wing_runway_control": {
+   "timestamp": {
+    "unit": "us"
+   },
+   "wheel_steering_yaw_setpoint": {
+    "unit": "rad"
+   }
+  },
+  "fixed_wing_takeoff_status": {
+   "timestamp": {
+    "unit": "us"
+   }
+  },
+  "follow_target_status": {
+   "angular_rate_setpoint": {
+    "unit": "rad/s"
+   },
+   "desired_position_raw": {
+    "unit": "m"
+   },
+   "follow_angle": {
+    "unit": "rad"
+   },
+   "gimbal_pitch": {
+    "unit": "rad"
+   },
+   "orbit_angle_setpoint": {
+    "unit": "rad"
+   },
+   "timestamp": {
+    "unit": "us"
+   },
+   "tracked_target_course": {
+    "unit": "rad"
+   }
+  },
+  "generator_status": {
+   "bat_current_setpoint": {
+    "unit": "A"
+   },
+   "battery_current": {
+    "unit": "A"
+   },
+   "bus_voltage": {
+    "unit": "V"
+   },
+   "generator_speed": {
+    "unit": "rpm"
+   },
+   "generator_temperature": {
+    "unit": "degC"
+   },
+   "load_current": {
+    "unit": "A"
+   },
+   "power_generated": {
+    "unit": "W"
+   },
+   "rectifier_temperature": {
+    "unit": "degC"
+   },
+   "runtime": {
+    "unit": "s"
+   },
+   "time_until_maintenance": {
+    "unit": "s"
+   }
+  },
+  "gimbal_device_information": {
+   "pitch_max": {
+    "unit": "rad"
+   },
+   "pitch_min": {
+    "unit": "rad"
+   },
+   "roll_max": {
+    "unit": "rad"
+   },
+   "roll_min": {
+    "unit": "rad"
+   },
+   "yaw_max": {
+    "unit": "rad"
+   },
+   "yaw_min": {
+    "unit": "rad"
+   }
+  },
+  "gimbal_manager_information": {
+   "pitch_max": {
+    "unit": "rad"
+   },
+   "pitch_min": {
+    "unit": "rad"
+   },
+   "roll_max": {
+    "unit": "rad"
+   },
+   "roll_min": {
+    "unit": "rad"
+   },
+   "yaw_max": {
+    "unit": "rad"
+   },
+   "yaw_min": {
+    "unit": "rad"
+   }
+  },
+  "gimbal_manager_set_pitchyaw": {
+   "pitch": {
+    "unit": "rad"
+   },
+   "pitch_rate": {
+    "unit": "rad/s"
+   },
+   "timestamp": {
+    "unit": "us"
+   },
+   "yaw": {
+    "unit": "rad"
+   },
+   "yaw_rate": {
+    "unit": "rad/s"
+   }
+  },
+  "gimbal_v1_command": {
+   "timestamp": {
+    "unit": "us"
+   }
+  },
+  "goto_setpoint": {
+   "heading": {
+    "unit": "rad"
+   },
+   "max_heading_rate": {
+    "unit": "rad/s"
+   },
+   "max_horizontal_speed": {
+    "unit": "m/s"
+   },
+   "max_vertical_speed": {
+    "unit": "m/s"
+   },
+   "position": {
+    "unit": "m"
+   },
+   "timestamp": {
+    "unit": "us"
+   }
+  },
+  "internal_combustion_engine_control": {
+   "timestamp": {
+    "unit": "us"
+   }
+  },
+  "internal_combustion_engine_status": {
+   "atmospheric_pressure_kpa": {
+    "unit": "kPa"
+   },
+   "coolant_temperature": {
+    "unit": "K"
+   },
+   "cylinder_head_temperature": {
+    "unit": "K"
+   },
+   "engine_load_percent": {
+    "unit": "%"
+   },
+   "engine_speed_rpm": {
+    "unit": "rpm"
+   },
+   "estimated_consumed_fuel_volume_cm3": {
+    "unit": "cm^3"
+   },
+   "exhaust_gas_temperature": {
+    "unit": "K"
+   },
+   "fuel_consumption_rate_cm3pm": {
+    "unit": "cm^3/min"
+   },
+   "fuel_pressure": {
+    "unit": "kPa"
+   },
+   "ignition_timing_deg": {
+    "unit": "deg"
+   },
+   "injection_time_ms": {
+    "unit": "ms"
+   },
+   "intake_manifold_pressure_kpa": {
+    "unit": "kPa"
+   },
+   "intake_manifold_temperature": {
+    "unit": "K"
+   },
+   "oil_pressure": {
+    "unit": "kPa"
+   },
+   "oil_temperature": {
+    "unit": "K"
+   },
+   "spark_dwell_time_ms": {
+    "unit": "ms"
+   },
+   "throttle_position_percent": {
+    "unit": "%"
+   },
+   "timestamp": {
+    "unit": "us"
+   }
+  },
+  "landing_target_pose": {
+   "cov_vx_rel": {
+    "unit": "(m/s)^2"
+   },
+   "cov_vy_rel": {
+    "unit": "(m/s)^2"
+   },
+   "cov_vz_rel": {
+    "unit": "(m/s)^2"
+   },
+   "cov_x_rel": {
+    "unit": "m^2"
+   },
+   "cov_y_rel": {
+    "unit": "m^2"
+   },
+   "cov_z_rel": {
+    "unit": "m^2"
+   },
+   "timestamp": {
+    "unit": "us"
+   },
+   "vx_rel": {
+    "unit": "m/s"
+   },
+   "vy_rel": {
+    "unit": "m/s"
+   },
+   "vz_rel": {
+    "unit": "m/s"
+   },
+   "x_abs": {
+    "unit": "m"
+   },
+   "x_rel": {
+    "unit": "m"
+   },
+   "y_abs": {
+    "unit": "m"
+   },
+   "y_rel": {
+    "unit": "m"
+   },
+   "z_abs": {
+    "unit": "m"
+   },
+   "z_rel": {
+    "unit": "m"
+   }
+  },
+  "lateral_control_configuration": {
+   "lateral_accel_max": {
+    "unit": "m/s^2"
+   },
+   "timestamp": {
+    "unit": "us"
+   }
+  },
+  "longitudinal_control_configuration": {
+   "climb_rate_target": {
+    "unit": "m/s"
+   },
+   "pitch_max": {
+    "unit": "rad"
+   },
+   "pitch_min": {
+    "unit": "rad"
+   },
+   "sink_rate_target": {
+    "unit": "m/s"
+   },
+   "timestamp": {
+    "unit": "us"
+   }
+  },
+  "manual_control_input": {
+   "source_component_id": {
+    "invalid": 0
+   },
+   "source_system_id": {
+    "invalid": 0
+   }
+  },
+  "manual_control_setpoint": {
+   "source_component_id": {
+    "invalid": 0
+   },
+   "source_system_id": {
+    "invalid": 0
+   }
+  },
+  "neural_control": {
+   "controller_time": {
+    "unit": "us"
+   },
+   "inference_time": {
+    "unit": "us"
+   },
+   "timestamp": {
+    "unit": "us"
+   }
+  },
+  "onboard_computer_status": {
+   "fan_speed": {
+    "unit": "rpm"
+   },
+   "link_rx_max": {
+    "unit": "Kb/s"
+   },
+   "link_rx_rate": {
+    "unit": "Kb/s"
+   },
+   "link_tx_max": {
+    "unit": "Kb/s"
+   },
+   "link_tx_rate": {
+    "unit": "Kb/s"
+   },
+   "link_type": {
+    "unit": "Kb/s"
+   },
+   "ram_total": {
+    "unit": "MB"
+   },
+   "ram_usage": {
+    "unit": "MB"
+   },
+   "storage_total": {
+    "unit": "MB"
+   },
+   "storage_usage": {
+    "unit": "MB"
+   },
+   "temperature_board": {
+    "unit": "degC"
+   },
+   "temperature_core": {
+    "unit": "degC"
+   },
+   "timestamp": {
+    "unit": "us"
+   },
+   "uptime": {
+    "unit": "ms"
+   }
+  },
+  "orbit_status": {
+   "radius": {
+    "unit": "m"
+   },
+   "timestamp": {
+    "unit": "us"
+   }
+  },
+  "position_controller_landing_status": {
+   "lateral_touchdown_offset": {
+    "unit": "m"
+   },
+   "timestamp": {
+    "unit": "us"
+   }
+  },
+  "position_controller_status": {
+   "acceptance_radius": {
+    "unit": "m"
+   },
+   "nav_bearing": {
+    "unit": "rad"
+   },
+   "nav_pitch": {
+    "unit": "rad"
+   },
+   "nav_roll": {
+    "unit": "rad"
+   },
+   "target_bearing": {
+    "unit": "rad"
+   },
+   "wp_dist": {
+    "unit": "m"
+   },
+   "xtrack_error": {
+    "unit": "m"
+   }
+  },
+  "position_setpoint": {
+   "course": {
+    "unit": "rad"
+   },
+   "loiter_minor_radius": {
+    "unit": "m"
+   },
+   "loiter_orientation": {
+    "unit": "rad"
+   },
+   "loiter_radius": {
+    "unit": "m"
+   }
+  },
+  "prec_land_status": {
+   "timestamp": {
+    "unit": "us"
+   }
+  },
+  "prec_takeoff_status": {
+   "timestamp": {
+    "unit": "us"
+   }
+  },
+  "pure_pursuit_status": {
+   "bearing_to_waypoint": {
+    "unit": "rad"
+   },
+   "crosstrack_error": {
+    "unit": "m"
+   },
+   "distance_to_waypoint": {
+    "unit": "m"
+   },
+   "lookahead_distance": {
+    "unit": "m"
+   },
+   "target_bearing": {
+    "unit": "rad"
+   },
+   "timestamp": {
+    "unit": "us"
+   }
+  },
+  "ranging_beacon": {
+   "alt": {
+    "unit": "m"
+   },
+   "carrier_freq": {
+    "unit": "MHz"
+   },
+   "hacc": {
+    "unit": "m"
+   },
+   "lat": {
+    "unit": "deg"
+   },
+   "lon": {
+    "unit": "deg"
+   },
+   "range": {
+    "unit": "m"
+   },
+   "range_accuracy": {
+    "unit": "m"
+   },
+   "timestamp": {
+    "unit": "us"
+   },
+   "timestamp_sample": {
+    "unit": "us"
+   },
+   "vacc": {
+    "unit": "m"
+   }
+  },
+  "raptor_input": {
+   "angular_velocity": {
+    "unit": "rad/s"
+   },
+   "linear_velocity": {
+    "unit": "m/s"
+   },
+   "position": {
+    "unit": "m"
+   },
+   "timestamp": {
+    "unit": "us"
+   },
+   "timestamp_sample": {
+    "unit": "us"
+   }
+  },
+  "raptor_status": {
+   "control_interval": {
+    "unit": "s"
+   },
+   "exit_reason": {
+    "unit": "enum"
+   },
+   "internal_reference_linear_velocity": {
+    "unit": "m/s"
+   },
+   "internal_reference_position": {
+    "unit": "m"
+   },
+   "timestamp": {
+    "unit": "us"
+   },
+   "timestamp_last_trajectory_setpoint": {
+    "unit": "us"
+   },
+   "timestamp_last_vehicle_angular_velocity": {
+    "unit": "us"
+   },
+   "timestamp_last_vehicle_attitude": {
+    "unit": "us"
+   },
+   "timestamp_last_vehicle_local_position": {
+    "unit": "us"
+   },
+   "timestamp_sample": {
+    "unit": "us"
+   },
+   "trajectory_setpoint_dt_max": {
+    "unit": "us"
+   },
+   "trajectory_setpoint_dt_max_since_activation": {
+    "unit": "us"
+   },
+   "trajectory_setpoint_dt_mean": {
+    "unit": "us"
+   }
+  },
+  "rover_attitude_setpoint": {
+   "timestamp": {
+    "unit": "us"
+   },
+   "yaw_setpoint": {
+    "unit": "rad"
+   }
+  },
+  "rover_attitude_status": {
+   "adjusted_yaw_setpoint": {
+    "unit": "rad"
+   },
+   "measured_yaw": {
+    "unit": "rad"
+   },
+   "timestamp": {
+    "unit": "us"
+   }
+  },
+  "rover_position_setpoint": {
+   "arrival_speed": {
+    "unit": "m/s"
+   },
+   "cruising_speed": {
+    "unit": "m/s"
+   },
+   "position_ned": {
+    "unit": "m"
+   },
+   "start_ned": {
+    "unit": "m"
+   },
+   "timestamp": {
+    "unit": "us"
+   },
+   "yaw": {
+    "unit": "rad"
+   }
+  },
+  "rover_rate_setpoint": {
+   "timestamp": {
+    "unit": "us"
+   },
+   "yaw_rate_setpoint": {
+    "unit": "rad/s"
+   }
+  },
+  "rover_rate_status": {
+   "adjusted_yaw_rate_setpoint": {
+    "unit": "rad/s"
+   },
+   "measured_yaw_rate": {
+    "unit": "rad/s"
+   },
+   "timestamp": {
+    "unit": "us"
+   }
+  },
+  "rover_speed_setpoint": {
+   "speed_body_x": {
+    "unit": "m/s"
+   },
+   "speed_body_y": {
+    "unit": "m/s"
+   },
+   "timestamp": {
+    "unit": "us"
+   }
+  },
+  "rover_speed_status": {
+   "adjusted_speed_body_x_setpoint": {
+    "unit": "m/s"
+   },
+   "adjusted_speed_body_y_setpoint": {
+    "unit": "m/s"
+   },
+   "measured_speed_body_x": {
+    "unit": "m/s"
+   },
+   "measured_speed_body_y": {
+    "unit": "m/s"
+   },
+   "timestamp": {
+    "unit": "us"
+   }
+  },
+  "rover_steering_setpoint": {
+   "timestamp": {
+    "unit": "us"
+   }
+  },
+  "rover_throttle_setpoint": {
+   "timestamp": {
+    "unit": "us"
+   }
+  },
+  "rtcm_corrections": {
+   "timestamp": {
+    "unit": "us"
+   }
+  },
+  "rtcm_moving_baseline": {
+   "timestamp": {
+    "unit": "us"
+   }
+  },
+  "rtl_time_estimate": {
+   "safe_time_estimate": {
+    "unit": "s"
+   },
+   "time_estimate": {
+    "unit": "s"
+   }
+  },
+  "satellite_info": {
+   "svid": {
+    "unit": "1..255"
+   }
+  },
+  "sensor_baro": {
+   "pressure": {
+    "unit": "Pa"
+   },
+   "temperature": {
+    "unit": "degC"
+   },
+   "timestamp": {
+    "unit": "us"
+   },
+   "timestamp_sample": {
+    "unit": "us"
+   }
+  },
+  "sensor_gnss": {
+   "altitude_ellipsoid": {
+    "unit": "m"
+   },
+   "altitude_msl": {
+    "unit": "m"
+   },
+   "course": {
+    "unit": "rad"
+   },
+   "course_accuracy": {
+    "unit": "rad"
+   },
+   "eph": {
+    "unit": "m"
+   },
+   "epv": {
+    "unit": "m"
+   },
+   "ground_speed": {
+    "unit": "m/s"
+   },
+   "latitude": {
+    "unit": "deg"
+   },
+   "longitude": {
+    "unit": "deg"
+   },
+   "rtcm_injection_rate": {
+    "unit": "Hz"
+   },
+   "speed_accuracy": {
+    "unit": "m/s"
+   },
+   "time_utc_usec": {
+    "unit": "us"
+   },
+   "timestamp": {
+    "unit": "us"
+   },
+   "timestamp_sample": {
+    "unit": "us"
+   },
+   "timestamp_time_relative": {
+    "unit": "us"
+   },
+   "vel_down": {
+    "unit": "m/s"
+   },
+   "vel_east": {
+    "unit": "m/s"
+   },
+   "vel_north": {
+    "unit": "m/s"
+   }
+  },
+  "sensor_gnss_rf_block0": {
+   "center_frequency": {
+    "unit": "Hz"
+   },
+   "timestamp": {
+    "unit": "us"
+   },
+   "timestamp_sample": {
+    "unit": "us"
+   }
+  },
+  "sensor_gnss_rf_block1": {
+   "center_frequency": {
+    "unit": "Hz"
+   },
+   "timestamp": {
+    "unit": "us"
+   },
+   "timestamp_sample": {
+    "unit": "us"
+   }
+  },
+  "sensor_gnss_rf_block2": {
+   "center_frequency": {
+    "unit": "Hz"
+   },
+   "timestamp": {
+    "unit": "us"
+   },
+   "timestamp_sample": {
+    "unit": "us"
+   }
+  },
+  "sensor_gnss_spectrum_block0": {
+   "center_frequency": {
+    "unit": "Hz"
+   },
+   "programmable_gain_amplifier": {
+    "unit": "dB"
+   },
+   "resolution": {
+    "unit": "Hz"
+   },
+   "spectrum": {
+    "unit": "(2^-2)dB"
+   },
+   "spectrum_span": {
+    "unit": "Hz"
+   },
+   "timestamp": {
+    "unit": "us"
+   },
+   "timestamp_sample": {
+    "unit": "us"
+   }
+  },
+  "sensor_gnss_spectrum_block1": {
+   "center_frequency": {
+    "unit": "Hz"
+   },
+   "programmable_gain_amplifier": {
+    "unit": "dB"
+   },
+   "resolution": {
+    "unit": "Hz"
+   },
+   "spectrum": {
+    "unit": "(2^-2)dB"
+   },
+   "spectrum_span": {
+    "unit": "Hz"
+   },
+   "timestamp": {
+    "unit": "us"
+   },
+   "timestamp_sample": {
+    "unit": "us"
+   }
+  },
+  "sensor_gnss_spectrum_block2": {
+   "center_frequency": {
+    "unit": "Hz"
+   },
+   "programmable_gain_amplifier": {
+    "unit": "dB"
+   },
+   "resolution": {
+    "unit": "Hz"
+   },
+   "spectrum": {
+    "unit": "(2^-2)dB"
+   },
+   "spectrum_span": {
+    "unit": "Hz"
+   },
+   "timestamp": {
+    "unit": "us"
+   },
+   "timestamp_sample": {
+    "unit": "us"
+   }
+  },
+  "sensor_mag": {
+   "range": {
+    "unit": "Gauss"
+   },
+   "temperature": {
+    "unit": "degC"
+   },
+   "x": {
+    "unit": "Gauss"
+   },
+   "y": {
+    "unit": "Gauss"
+   },
+   "z": {
+    "unit": "Gauss"
+   }
+  },
+  "sensor_uwb": {
+   "aoa_azimuth_dev": {
+    "unit": "deg"
+   },
+   "aoa_azimuth_resp": {
+    "unit": "deg"
+   },
+   "aoa_elevation_dev": {
+    "unit": "deg"
+   },
+   "aoa_elevation_resp": {
+    "unit": "deg"
+   },
+   "distance": {
+    "unit": "m"
+   },
+   "timestamp": {
+    "unit": "us"
+   }
+  },
+  "sensors_status_gnss": {
+   "drift_rate_horizontal": {
+    "unit": "m/s"
+   },
+   "drift_rate_vertical": {
+    "unit": "m/s"
+   },
+   "speed_horizontal_filtered": {
+    "unit": "m/s"
+   },
+   "timestamp": {
+    "unit": "us"
+   }
+  },
+  "setpoint_config": {
+   "timestamp": {
+    "unit": "us"
+   }
+  },
+  "setpoint_config_reply": {
+   "timestamp": {
+    "unit": "us"
+   }
+  },
+  "target_gnss": {
+   "altitude_msl_m": {
+    "unit": "m"
+   },
+   "eph": {
+    "unit": "m"
+   },
+   "epv": {
+    "unit": "m"
+   },
+   "latitude_deg": {
+    "unit": "deg"
+   },
+   "longitude_deg": {
+    "unit": "deg"
+   },
+   "s_acc_m_s": {
+    "unit": "m/s"
+   },
+   "timestamp": {
+    "unit": "us"
+   },
+   "timestamp_sample": {
+    "unit": "us"
+   },
+   "vel_d_m_s": {
+    "unit": "m/s"
+   },
+   "vel_e_m_s": {
+    "unit": "m/s"
+   },
+   "vel_n_m_s": {
+    "unit": "m/s"
+   }
+  },
+  "tecs_status": {
+   "altitude_reference": {
+    "unit": "m"
+   },
+   "altitude_sp": {
+    "unit": "m"
+   },
+   "altitude_time_constant": {
+    "unit": "s"
+   },
+   "equivalent_airspeed_sp": {
+    "unit": "m/s"
+   },
+   "fast_descend_ratio": {
+    "unit": "0-1"
+   },
+   "height_rate": {
+    "unit": "m/s"
+   },
+   "height_rate_direct": {
+    "unit": "m/s"
+   },
+   "height_rate_reference": {
+    "unit": "m/s"
+   },
+   "height_rate_setpoint": {
+    "unit": "m/s"
+   },
+   "pitch_integ": {
+    "unit": "rad"
+   },
+   "pitch_sp_rad": {
+    "unit": "rad"
+   },
+   "total_energy_balance_rate": {
+    "unit": "m^2/s^3"
+   },
+   "total_energy_balance_rate_sp": {
+    "unit": "m^2/s^3"
+   },
+   "total_energy_rate": {
+    "unit": "m^2/s^3"
+   },
+   "total_energy_rate_sp": {
+    "unit": "m^2/s^3"
+   },
+   "true_airspeed_derivative": {
+    "unit": "m/s^2"
+   },
+   "true_airspeed_derivative_raw": {
+    "unit": "m/s^2"
+   },
+   "true_airspeed_derivative_sp": {
+    "unit": "m/s^2"
+   },
+   "true_airspeed_filtered": {
+    "unit": "m/s"
+   },
+   "true_airspeed_sp": {
+    "unit": "m/s"
+   }
+  },
+  "transponder_report": {
+   "altitude": {
+    "unit": "m"
+   },
+   "heading": {
+    "unit": "rad"
+   },
+   "hor_velocity": {
+    "unit": "m/s"
+   },
+   "lat": {
+    "unit": "deg"
+   },
+   "lon": {
+    "unit": "deg"
+   },
+   "timestamp": {
+    "unit": "us"
+   },
+   "tslc": {
+    "unit": "s"
+   },
+   "ver_velocity": {
+    "unit": "m/s"
+   }
+  },
+  "vehicle_air_data": {
+   "ambient_temperature": {
+    "unit": "degC"
+   },
+   "baro_alt_meter": {
+    "unit": "m"
+   },
+   "baro_pressure_pa": {
+    "unit": "Pa"
+   },
+   "rho": {
+    "unit": "kg/m^3"
+   },
+   "timestamp": {
+    "unit": "us"
+   },
+   "timestamp_sample": {
+    "unit": "us"
+   }
+  },
+  "vehicle_command": {
+   "timestamp": {
+    "unit": "us"
+   }
+  },
+  "vehicle_command_ack": {
+   "result_param2": {
+    "unit": "enum ARM_AUTH_DENIED_REASON"
+   },
+   "timestamp": {
+    "unit": "us"
+   }
+  },
+  "vehicle_command_mode_executor": {
+   "timestamp": {
+    "unit": "us"
+   }
+  },
+  "vehicle_gnss": {
+   "antenna_offset": {
+    "unit": "m"
+   },
+   "timestamp": {
+    "unit": "us"
+   },
+   "timestamp_sample": {
+    "unit": "us"
+   }
+  },
+  "vehicle_rates_setpoint": {
+   "pitch": {
+    "unit": "rad/s"
+   },
+   "roll": {
+    "unit": "rad/s"
+   },
+   "yaw": {
+    "unit": "rad/s"
+   }
+  },
+  "vehicle_thrust_setpoint_virtual_fw": {
+   "timestamp": {
+    "unit": "us"
+   },
+   "timestamp_sample": {
+    "unit": "us"
+   }
+  },
+  "vehicle_thrust_setpoint_virtual_mc": {
+   "timestamp": {
+    "unit": "us"
+   },
+   "timestamp_sample": {
+    "unit": "us"
+   }
+  },
+  "velocity_limits": {
+   "horizontal_velocity": {
+    "unit": "m/s"
+   },
+   "vertical_velocity": {
+    "unit": "m/s"
+   },
+   "yaw_rate": {
+    "unit": "rad/s"
+   }
+  },
+  "vte_aid_ev_yaw": {
+   "time_last_predict": {
+    "unit": "us"
+   },
+   "time_since_meas_ms": {
+    "unit": "ms"
+   },
+   "timestamp": {
+    "unit": "us"
+   },
+   "timestamp_sample": {
+    "unit": "us"
+   }
+  },
+  "vte_aid_fiducial_marker": {
+   "time_last_predict": {
+    "unit": "us"
+   },
+   "time_since_meas_ms": {
+    "unit": "ms"
+   },
+   "timestamp": {
+    "unit": "us"
+   },
+   "timestamp_sample": {
+    "unit": "us"
+   }
+  },
+  "vte_bias_init_status": {
+   "delta_norm": {
+    "unit": "m"
+   },
+   "filtered_bias": {
+    "unit": "m"
+   },
+   "raw_bias": {
+    "unit": "m"
+   },
+   "timestamp": {
+    "unit": "us"
+   }
+  },
+  "vte_input": {
+   "acc_xyz": {
+    "unit": "m/s^2"
+   },
+   "timestamp": {
+    "unit": "us"
+   },
+   "timestamp_sample": {
+    "unit": "us"
+   }
+  },
+  "vte_orientation": {
+   "cov_yaw": {
+    "unit": "rad^2"
+   },
+   "cov_yaw_rate": {
+    "unit": "(rad/s)^2"
+   },
+   "timestamp": {
+    "unit": "us"
+   },
+   "yaw": {
+    "unit": "rad"
+   },
+   "yaw_rate": {
+    "unit": "rad/s"
+   }
+  },
+  "vte_position": {
+   "acc_target": {
+    "unit": "m/s^2"
+   },
+   "bias": {
+    "unit": "m"
+   },
+   "cov_acc_target": {
+    "unit": "(m/s^2)^2"
+   },
+   "cov_bias": {
+    "unit": "m^2"
+   },
+   "cov_rel_pos": {
+    "unit": "m^2"
+   },
+   "cov_vel_target": {
+    "unit": "(m/s)^2"
+   },
+   "cov_vel_uav": {
+    "unit": "(m/s)^2"
+   },
+   "rel_pos": {
+    "unit": "m"
+   },
+   "timestamp": {
+    "unit": "us"
+   },
+   "vel_target": {
+    "unit": "m/s"
+   },
+   "vel_uav": {
+    "unit": "m/s"
+   }
+  },
+  "wheel_encoders": {
+   "wheel_angle": {
+    "unit": "rad"
+   },
+   "wheel_speed": {
+    "unit": "rad/s"
+   }
+  },
+  "wind": {
+   "beta_innov": {
+    "unit": "rad"
+   },
+   "beta_innov_var": {
+    "unit": "rad^2"
+   },
+   "tas_innov": {
+    "unit": "m/s"
+   },
+   "tas_innov_var": {
+    "unit": "(m/s)^2"
+   },
+   "timestamp": {
+    "unit": "us"
+   },
+   "timestamp_sample": {
+    "unit": "us"
+   },
+   "variance_east": {
+    "unit": "(m/s)^2",
+    "invalid": 0
+   },
+   "variance_north": {
+    "unit": "(m/s)^2",
+    "invalid": 0
+   },
+   "windspeed_east": {
+    "unit": "m/s"
+   },
+   "windspeed_north": {
+    "unit": "m/s"
+   }
+  }
+ }
+}

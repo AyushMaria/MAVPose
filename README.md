@@ -94,10 +94,11 @@ $ mavpose flight.tlog --prompt "Plot altitude over time"
 ## Features
 
 - **Plain-English plots** — describe any flight data; MAVPose figures out which MAVLink fields to use
-- **Headless extraction layer** — `LogExtractor` parses MAVLink `.tlog` and ArduPilot DataFlash `.bin`/`.log` files into per-message-type DataFrames before the LLM is ever invoked:
-  - **one clock** — every message type shares a single `time_s` axis (tlog receive time, or DataFlash `TimeUS`); native time fields are kept as columns
-  - **real units** — scaled fields are converted using the log's own unit metadata (`alt` mm → m, `lat` degE7 → deg, `voltage_battery` mV → V, …) and every column's unit is reported; pass `convert_units=False` for raw values
-  - **unknown values removed** — MAVLink "not provided" markers (`current_battery = -1`, `eph = UINT16_MAX`, …) become NaN instead of fake readings, using the `invalid` markers from the official MAVLink definitions; counts appear in `extractor.unknown_counts` and the LLM schema. Pass `filter_unknown=False` to keep them
+- **ArduPilot and PX4** — one API for MAVLink `.tlog`, ArduPilot DataFlash `.bin`/`.log` and PX4 ULog `.ulg` logs
+- **Headless extraction layer** — `LogExtractor` parses every supported format into per-message-type DataFrames before the LLM is ever invoked:
+  - **one clock** — every message type shares a single `time_s` axis (tlog receive time, DataFlash `TimeUS`, or ULog `timestamp` from logging start); native time fields are kept as columns
+  - **real units** — scaled fields are converted using unit metadata from the log or the autopilot's own message definitions (`alt` mm → m, `lat` degE7 → deg, `voltage_battery` mV → V, …) and every column's unit is reported; pass `convert_units=False` for raw values
+  - **unknown values removed** — "not provided" markers (MAVLink `current_battery = -1`, `eph = UINT16_MAX`; PX4 `battery_status.current_a = -1`, …) become NaN instead of fake readings, using the `invalid` markers from the official MAVLink and PX4 definitions; counts appear in `extractor.unknown_counts` and the LLM schema. Pass `filter_unknown=False` to keep them
   - **corruption-tolerant** — bad packets are skipped and counted (`extractor.stats`) instead of silently ending the parse
 - **Clean Parquet handoff** — only the relevant message types are exported; the LLM sees exact column names, dtypes, min/max ranges — no binary guesswork
 - **Semantic field search** — ChromaDB vector embeddings surface the most relevant message types for your query
@@ -140,8 +141,8 @@ MAVPose has two layers. Install only what you need:
 
 | You want… | Install | Footprint |
 |---|---|---|
-| Clean, unit-correct telemetry in pandas / Parquet (no AI) | `pip install mavpose` | 9 packages |
-| …plus the plain-English plot assistant (`mavpose` command) | `pip install "mavpose[chat]"` | ~113 packages |
+| Clean, unit-correct telemetry in pandas / Parquet (no AI) — ArduPilot and PX4 logs | `pip install mavpose` | 10 packages |
+| …plus the plain-English plot assistant (`mavpose` command) | `pip install "mavpose[chat]"` | ~114 packages |
 
 The core never imports the chat layer, so `pip install mavpose` has no LLM, vector-store or plotting dependencies.
 
@@ -195,7 +196,7 @@ mavpose flight.tlog
 usage: mavpose [-h] [--prompt PROMPT] [--retries N] [--verbose] log_file
 
 positional arguments:
-  log_file              Path to a MAVLink log file (.tlog, .bin, .log)
+  log_file              Path to a flight log: MAVLink .tlog, ArduPilot .bin/.log, or PX4 .ulg
 
 options:
   -p, --prompt TEXT     Plot request. Omit for interactive mode.
@@ -244,15 +245,18 @@ OPENROUTER_MODEL=openai/gpt-4o
 MAVPose/
 ├── mavpose/                       # pip install mavpose — core data layer
 │   ├── log_extractor.py           # LogExtractor: one clock, real units, unknown markers
+│   ├── ulog_reader.py             # PX4 ULog (.ulg) support via pyulog
 │   ├── file_validator.py          # File validation (extension, size, symlink)
 │   ├── data/
-│   │   └── mavlink_unknown_markers.json   # generated from the MAVLink spec
+│   │   ├── mavlink_unknown_markers.json   # generated from the MAVLink spec
+│   │   └── px4_fields.json                # units + markers from PX4 msg definitions
 │   └── chat/                      # pip install "mavpose[chat]" — plot assistant
 │       ├── plot_creator.py        # PlotCreator: LLM writes the plot script
 │       ├── safe_executor.py       # Restricted subprocess executor (audit hook + limits)
 │       └── cli.py                 # `mavpose` command
 ├── tools/
-│   └── gen_unknown_markers.py     # regenerates mavpose/data from mavlink/mavlink
+│   ├── gen_unknown_markers.py     # regenerates MAVLink markers from mavlink/mavlink
+│   └── gen_px4_field_info.py      # regenerates PX4 units/markers from PX4-Autopilot/msg
 ├── tests/
 │   ├── log_builders.py            # builds real .tlog / .bin files for tests
 │   ├── test_real_logs.py          # end-to-end extraction tests

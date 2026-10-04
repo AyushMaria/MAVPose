@@ -52,7 +52,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument(
         "log_file",
-        help="Path to a MAVLink log file (.tlog, .bin, .log)",
+        help="Path to a flight log: MAVLink .tlog, ArduPilot .bin/.log, or PX4 .ulg",
     )
     p.add_argument(
         "--prompt", "-p",

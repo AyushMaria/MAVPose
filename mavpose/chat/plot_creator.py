@@ -100,7 +100,7 @@ class PlotCreator:
             template=(
                 "You are an expert data-visualisation engineer.\n"
                 "You will be given a Parquet file that contains pre-extracted,"
-                " time-aligned MAVLink telemetry. Your task is to write a\n"
+                " time-aligned drone flight-log telemetry. Your task is to write a\n"
                 "Python script that reads this file with pandas and plots the"
                 " requested data with matplotlib.\n\n"
                 "Rules:\n"
@@ -130,7 +130,7 @@ class PlotCreator:
             input_variables=["schema", "error", "script", "parquet_file"],
             template=(
                 "You are debugging a pandas + matplotlib script that reads"
-                " MAVLink telemetry from a Parquet file.\n\n"
+                " flight-log telemetry from a Parquet file.\n\n"
                 "Parquet file: {parquet_file}\n"
                 "Schema:\n{schema}\n\n"
                 "Failing script:\n{script}\n\n"
