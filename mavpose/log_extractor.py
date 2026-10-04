@@ -1,13 +1,13 @@
 """
 mavpose/log_extractor.py
 
-Headless database-query layer for MAVLink flight logs.
+Headless data layer for drone flight logs.
 
 Responsibilities
 ----------------
-1. Parse a MAVLink .tlog / .bin / .log file into a dict of
-   per-message-type pandas DataFrames, each with a monotonic
-   ``time_s`` column (seconds from first message).
+1. Parse a MAVLink telemetry log (.tlog) or an ArduPilot DataFlash log
+   (.bin binary, .log text) into a dict of per-message-type pandas
+   DataFrames, each with a ``time_s`` column (seconds from log start).
 2. Provide a lightweight schema-only pass that returns message-type
    metadata without materialising full DataFrames (used for embeddings).
 3. Export a subset of message types to a single Parquet file so the
@@ -16,28 +16,84 @@ Responsibilities
 
 Design notes
 ------------
-* Each DataFrame has a ``msg_type`` string column and a float64
-  ``time_s`` column derived from the MAVLink timestamp (us_since_epoch
-  when available, else monotonic sequence * 0.001 s).
-* All numeric columns are cast to float64 for plotting compatibility.
-* Non-numeric, non-string fields are dropped (arrays, structs).
-* The Parquet file uses per-column statistics so the LLM prompt can
-  include min/max/dtype metadata without reading the file itself.
+* **One clock.**  ``time_s`` is derived from pymavlink's per-message
+  ``_timestamp``: the recorded receive time for .tlog files, and
+  ``TimeUS`` (anchored to GPS time when available) for DataFlash logs.
+  Every message type therefore shares the same time axis.  Native time
+  fields (``time_boot_ms``, ``time_usec``, ``TimeUS`` …) are kept as
+  ordinary columns.
+* **Real units.**  MAVLink fields are converted from scaled integer
+  units to natural ones using pymavlink's own unit metadata (e.g.
+  ``alt`` mm → m, ``lat`` degE7 → deg, ``voltage_battery`` mV → V).
+  DataFlash units come from the log's FMTU/UNIT/MULT records.  The
+  resulting unit of every column is available via :attr:`units` and is
+  included in the schema summary.  Time-valued fields are not rescaled.
+* **Robust parsing.**  Corrupt packets are skipped and counted rather
+  than ending the parse; a warning reports the totals (see :attr:`stats`).
+* Non-scalar fields (arrays) are dropped; numeric columns are float64.
 """
 
 from __future__ import annotations
 
 import logging
 import os
-from typing import Dict, List, Optional
+import re
+from typing import Dict, Iterator, List, Optional, Tuple
 
 import pandas as pd
 from pymavlink import mavutil
 
 logger = logging.getLogger(__name__)
 
-# Columns injected by the extractor — not sourced from the MAVLink message.
+# Columns injected by the extractor — not sourced from the log message.
 _RESERVED_COLS = {"time_s", "msg_type"}
+
+# DataFlash metadata records that describe the log rather than the flight.
+_META_TYPES = {"FMT", "FMTU", "UNIT", "MULT"}
+
+# Stop parsing only after this many *consecutive* reader exceptions, which
+# indicates the reader can no longer make progress through the file.
+MAX_CONSECUTIVE_ERRORS = 1000
+
+# Scaled units → (factor, natural unit).  Units not listed here (and all
+# time units such as ms / us) are left unchanged.
+_UNIT_CONVERSIONS: Dict[str, Tuple[float, str]] = {
+    # length
+    "mm": (1e-3, "m"),
+    "cm": (1e-2, "m"),
+    "dm": (1e-1, "m"),
+    "dam": (10.0, "m"),
+    # angle / position
+    "degE7": (1e-7, "deg"),
+    "degE5": (1e-5, "deg"),
+    "cdeg": (1e-2, "deg"),
+    "ddeg": (1e-1, "deg"),
+    # speed / rate
+    "mm/s": (1e-3, "m/s"),
+    "cm/s": (1e-2, "m/s"),
+    "dm/s": (1e-1, "m/s"),
+    "mrad/s": (1e-3, "rad/s"),
+    "cdeg/s": (1e-2, "deg/s"),
+    "ddeg/s": (1e-1, "deg/s"),
+    # electrical
+    "mV": (1e-3, "V"),
+    "cV": (1e-2, "V"),
+    "mA": (1e-3, "A"),
+    "cA": (1e-2, "A"),
+    # ratios / temperature / magnetic
+    "d%": (1e-1, "%"),
+    "c%": (1e-2, "%"),
+    "cdegC": (1e-2, "degC"),
+    "mgauss": (1e-3, "gauss"),
+    "mGauss": (1e-3, "Gauss"),
+}
+
+# DataFlash units with an odd multiplier are rendered by pymavlink as
+# "<factor> <unit>", e.g. "1e-07 deg".
+_FACTOR_UNIT_RE = re.compile(r"^\s*([-+0-9.eE]+)\s+(\S+)\s*$")
+
+# Units that measure time; these are never rescaled.
+_TIME_UNITS = {"s", "ms", "us", "µs", "ns", "ds", "cs"}
 
 
 def _to_float(value) -> Optional[float]:
@@ -48,25 +104,68 @@ def _to_float(value) -> Optional[float]:
         return None
 
 
-def _timestamp_us(msg) -> Optional[int]:
+def resolve_unit(raw_unit: Optional[str]) -> Tuple[float, Optional[str]]:
     """
-    Extract a microsecond-epoch timestamp from a MAVLink message.
+    Map a raw log unit to ``(factor, natural_unit)``.
 
-    Tries common timestamp field names in priority order.
-    Returns None when no timestamp field is present.
+    ``value_in_natural_unit = raw_value * factor``.  Unknown units and time
+    units are returned unchanged with a factor of 1.
     """
-    for attr in ("time_usec", "time_unix_usec", "time_us", "usec"):
-        val = getattr(msg, attr, None)
-        if val and val > 0:
-            return int(val)
-    return None
+    if not raw_unit:
+        return 1.0, None
+    unit = raw_unit.strip()
+    factor = 1.0
+    match = _FACTOR_UNIT_RE.match(unit)
+    if match:
+        try:
+            factor = float(match.group(1))
+            unit = match.group(2)
+        except ValueError:
+            return 1.0, raw_unit
+    if unit in _TIME_UNITS:
+        return 1.0, unit
+    if unit in _UNIT_CONVERSIONS:
+        scale, natural = _UNIT_CONVERSIONS[unit]
+        return factor * scale, natural
+    return factor, unit
+
+
+def _raw_field_units(msg) -> Dict[str, str]:
+    """Return ``{field: raw_unit}`` for a MAVLink or DataFlash message."""
+    # MAVLink messages: unit metadata generated from the MAVLink XML.
+    units = getattr(msg, "fieldunits_by_name", None)
+    if isinstance(units, dict):
+        return {k: v for k, v in units.items() if isinstance(v, str) and v}
+
+    # DataFlash messages: units from FMTU/UNIT/MULT records, if present.
+    fmt = getattr(msg, "fmt", None)
+    get_unit = getattr(fmt, "get_unit", None)
+    columns = getattr(fmt, "columns", None)
+    if callable(get_unit) and isinstance(columns, (list, tuple)):
+        found = {}
+        for col in columns:
+            try:
+                unit = get_unit(col)
+            except Exception:
+                unit = ""
+            if isinstance(unit, str) and unit:
+                found[col] = unit
+        return found
+    return {}
+
+
+def _message_timestamp(msg) -> Optional[float]:
+    """Return pymavlink's per-message timestamp in seconds, if valid."""
+    ts = getattr(msg, "_timestamp", None)
+    if isinstance(ts, bool) or not isinstance(ts, (int, float)):
+        return None
+    return float(ts)
 
 
 def _coerce_numeric(series: pd.Series) -> pd.Series:
     """
     Attempt to coerce a Series to numeric (float64).
 
-    Uses errors='coerce' (pandas >= 2.0 dropped 'ignore').
     If the result is all-NaN the original string Series is returned
     unchanged so we don't silently destroy text columns.
     """
@@ -78,22 +177,107 @@ def _coerce_numeric(series: pd.Series) -> pd.Series:
 
 class LogExtractor:
     """
-    Parse a MAVLink log file into structured DataFrames.
+    Parse a flight log file into structured DataFrames.
 
     Parameters
     ----------
     log_path:
-        Absolute or relative path to a .tlog / .bin / .log file.
+        Path to a .tlog, .bin or .log file.
+    convert_units:
+        Convert scaled fields to natural units (mm → m, degE7 → deg,
+        mV → V, …).  Defaults to True.
     """
 
-    def __init__(self, log_path: str) -> None:
+    def __init__(self, log_path: str, convert_units: bool = True) -> None:
         if not os.path.exists(log_path):
             raise FileNotFoundError(f"Log file not found: {log_path}")
         self.log_path = log_path
+        self.convert_units = convert_units
         # Populated after extract_all()
         self._frames: Dict[str, pd.DataFrame] = {}
-        self._schema: Dict[str, dict] = {}   # msg_type -> {field: dtype_str}
+        self._schema: Dict[str, dict] = {}   # msg_type -> {count, fields, units}
+        self._units: Dict[str, Dict[str, str]] = {}   # msg_type -> {col: unit}
+        self._raw_units: Dict[str, Dict[str, str]] = {}
         self._extracted = False
+        self.stats: Dict[str, int] = {"messages": 0, "bad_data": 0, "errors": 0}
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _iter_messages(self) -> Iterator[object]:
+        """
+        Yield flight messages from the log, skipping corrupt data.
+
+        Corrupt packets (BAD_DATA) and reader exceptions are counted in
+        :attr:`stats` instead of stopping the parse.  Parsing only gives up
+        after ``MAX_CONSECUTIVE_ERRORS`` exceptions in a row.
+        """
+        stats = {"messages": 0, "bad_data": 0, "errors": 0}
+        self.stats = stats
+        mav = mavutil.mavlink_connection(self.log_path)
+        consecutive_errors = 0
+        try:
+            while True:
+                try:
+                    msg = mav.recv_match(blocking=False)
+                except Exception as exc:
+                    stats["errors"] += 1
+                    consecutive_errors += 1
+                    logger.debug("Skipping unreadable data in %s: %s", self.log_path, exc)
+                    if consecutive_errors >= MAX_CONSECUTIVE_ERRORS:
+                        logger.warning(
+                            "Stopped reading %s after %d consecutive read errors; "
+                            "the rest of the file may be unreadable.",
+                            self.log_path, consecutive_errors,
+                        )
+                        break
+                    continue
+
+                if msg is None:
+                    break
+                consecutive_errors = 0
+
+                msg_type = msg.get_type()
+                if msg_type == "BAD_DATA":
+                    stats["bad_data"] += 1
+                    continue
+                if msg_type in _META_TYPES:
+                    continue
+
+                stats["messages"] += 1
+                yield msg
+        finally:
+            close = getattr(mav, "close", None)
+            if callable(close):
+                try:
+                    close()
+                except Exception:
+                    pass
+
+        if stats["bad_data"] or stats["errors"]:
+            logger.warning(
+                "Skipped %d corrupt packet(s) and %d read error(s) in %s; "
+                "%d valid messages were kept.",
+                stats["bad_data"], stats["errors"], self.log_path, stats["messages"],
+            )
+
+    def _record_units(self, msg_type: str, msg) -> Dict[str, float]:
+        """Record units for *msg_type* on first sight; return field factors."""
+        raw = _raw_field_units(msg)
+        units: Dict[str, str] = {}
+        factors: Dict[str, float] = {}
+        for field, raw_unit in raw.items():
+            factor, natural = resolve_unit(raw_unit)
+            if not self.convert_units:
+                factor, natural = 1.0, raw_unit
+            if natural:
+                units[field] = natural
+            if factor != 1.0:
+                factors[field] = factor
+        self._raw_units[msg_type] = raw
+        self._units[msg_type] = units
+        return factors
 
     # ------------------------------------------------------------------
     # Public API
@@ -102,47 +286,37 @@ class LogExtractor:
     def schema_only(self) -> Dict[str, dict]:
         """
         Fast single-pass scan that collects message-type metadata
-        (field names, Python types, message count) without storing rows.
+        (field names, Python types, units, message count) without
+        storing rows.
 
         Returns
         -------
-        dict mapping msg_type -> {"count": int, "fields": {name: type_str}}
+        dict mapping msg_type -> {"count": int,
+                                  "fields": {name: type_str},
+                                  "units": {name: unit}}
         """
         schema: Dict[str, dict] = {}
-        mav = mavutil.mavlink_connection(self.log_path)
-        while True:
-            try:
-                msg = mav.recv_match(blocking=False)
-                if msg is None:
-                    break
-                mt = msg.get_type()
-                if mt == "BAD_DATA":
-                    continue
-                if mt not in schema:
-                    schema[mt] = {
-                        "count": 1,
-                        "fields": {
-                            f: type(getattr(msg, f)).__name__
-                            for f in msg.get_fieldnames()
-                        },
-                    }
-                else:
-                    schema[mt]["count"] += 1
-            except KeyboardInterrupt:
-                logger.info("schema_only() interrupted.")
-                break
-            except Exception as exc:
-                logger.debug("schema_only skip: %s", exc)
-                break
+        for msg in self._iter_messages():
+            mt = msg.get_type()
+            if mt not in schema:
+                if mt not in self._units:
+                    self._record_units(mt, msg)
+                schema[mt] = {
+                    "count": 1,
+                    "fields": {
+                        f: type(getattr(msg, f, None)).__name__
+                        for f in msg.get_fieldnames()
+                    },
+                    "units": dict(self._units.get(mt, {})),
+                }
+            else:
+                schema[mt]["count"] += 1
         self._schema = schema
         return schema
 
     def extract_all(self) -> Dict[str, pd.DataFrame]:
         """
-        Full two-pass extraction.
-
-        Pass 1 — collect raw rows per message type.
-        Pass 2 — build DataFrames, normalise time_s, cast numerics.
+        Full extraction into one DataFrame per message type.
 
         Returns
         -------
@@ -150,61 +324,89 @@ class LogExtractor:
             time_s (float64), msg_type (str), <field_0>, <field_1>, ...
         """
         raw: Dict[str, list] = {}  # msg_type -> list of row-dicts
-        t0_us: Optional[int] = None
-        seq = 0  # fallback counter when no timestamp
+        factors_by_type: Dict[str, Dict[str, float]] = {}
+        t0: Optional[float] = None
+        untimed = 0
 
-        mav = mavutil.mavlink_connection(self.log_path)
-        while True:
-            try:
-                msg = mav.recv_match(blocking=False)
-                if msg is None:
-                    break
-                mt = msg.get_type()
-                if mt == "BAD_DATA":
-                    continue
+        for msg in self._iter_messages():
+            mt = msg.get_type()
 
-                # --- timestamp resolution ---
-                ts_us = _timestamp_us(msg)
-                if ts_us is not None:
-                    if t0_us is None:
-                        t0_us = ts_us
-                    time_s = (ts_us - t0_us) / 1_000_000.0
-                else:
-                    time_s = seq * 0.001
-                seq += 1
+            ts = _message_timestamp(msg)
+            if ts is None:
+                untimed += 1
+                continue
+            if t0 is None:
+                t0 = ts
 
-                row: dict = {"time_s": time_s, "msg_type": mt}
-                for field in msg.get_fieldnames():
-                    val = getattr(msg, field, None)
-                    # Keep scalars only — drop lists / nested objects
-                    if isinstance(val, (int, float, str, bool)):
-                        row[field] = val
+            if mt not in factors_by_type:
+                factors_by_type[mt] = self._record_units(mt, msg)
+            factors = factors_by_type[mt]
 
-                raw.setdefault(mt, []).append(row)
+            row: dict = {"time_s": ts - t0, "msg_type": mt}
+            for field in msg.get_fieldnames():
+                val = getattr(msg, field, None)
+                # Keep scalars only — drop lists / nested objects
+                if isinstance(val, bool):
+                    row[field] = val
+                elif isinstance(val, (int, float)):
+                    factor = factors.get(field)
+                    row[field] = val * factor if factor is not None else val
+                elif isinstance(val, (str, bytes)):
+                    row[field] = (
+                        val.decode("utf-8", errors="replace").rstrip("\x00")
+                        if isinstance(val, bytes) else val
+                    )
+            raw.setdefault(mt, []).append(row)
 
-            except KeyboardInterrupt:
-                logger.info("extract_all() interrupted.")
-                break
-            except Exception as exc:
-                logger.debug("extract_all skip msg: %s", exc)
-                break
+        if untimed:
+            logger.warning(
+                "Dropped %d message(s) without a timestamp from %s.",
+                untimed, self.log_path,
+            )
 
         # Build DataFrames
         frames: Dict[str, pd.DataFrame] = {}
         for mt, rows in raw.items():
             df = pd.DataFrame(rows)
-            # Coerce numeric columns to float64, preserve string cols
             for col in df.columns:
                 if col not in _RESERVED_COLS:
                     df[col] = _coerce_numeric(df[col])
-            df.sort_values("time_s", inplace=True)
+            df.sort_values("time_s", inplace=True, kind="stable")
             df.reset_index(drop=True, inplace=True)
             frames[mt] = df
+            self._units.setdefault(mt, {})["time_s"] = "s"
 
         self._frames = frames
         self._extracted = True
         logger.info("Extracted %d message types from %s", len(frames), self.log_path)
         return frames
+
+    def summary(self, msg_types: Optional[List[str]] = None) -> Dict[str, dict]:
+        """
+        Schema summary for extracted message types, suitable for an LLM
+        prompt: msg_type -> {"rows": int,
+                             "columns": {col: {dtype, unit?, min?, max?}}}.
+        """
+        if not self._extracted:
+            raise RuntimeError("Call extract_all() before summary().")
+        types = list(self._frames) if msg_types is None else msg_types
+        summary: Dict[str, dict] = {}
+        for mt in types:
+            if mt not in self._frames:
+                continue
+            df = self._frames[mt]
+            units = self._units.get(mt, {})
+            cols = {}
+            for col in df.columns:
+                meta: dict = {"dtype": str(df[col].dtype)}
+                if col in units:
+                    meta["unit"] = units[col]
+                if pd.api.types.is_numeric_dtype(df[col]) and df[col].notna().any():
+                    meta["min"] = round(float(df[col].min()), 6)
+                    meta["max"] = round(float(df[col].max()), 6)
+                cols[col] = meta
+            summary[mt] = {"rows": len(df), "columns": cols}
+        return summary
 
     def export_parquet(
         self,
@@ -214,32 +416,18 @@ class LogExtractor:
         """
         Export the requested message types to a single Parquet file.
 
-        Each message type becomes a separate row-group distinguished
-        by the ``msg_type`` column.  Only types actually present in the
-        log are included (unknown types are silently skipped).
-
-        Parameters
-        ----------
-        msg_types:
-            List of MAVLink message type names to export, e.g.
-            ["GLOBAL_POSITION_INT", "SYS_STATUS"].
-        output_path:
-            Destination .parquet file path.
+        Message types are distinguished by the ``msg_type`` column.  Only
+        types actually present in the log are included (unknown types are
+        skipped with a warning).
 
         Returns
         -------
-        Schema summary dict mapping msg_type ->
-            {"rows": int, "columns": [col_name: dtype_str, ...]}
-        Suitable for injection into the LLM prompt.
+        Schema summary dict (see :meth:`summary`) for the exported types.
         """
         if not self._extracted:
             raise RuntimeError("Call extract_all() before export_parquet().")
 
-        selected = [
-            self._frames[mt]
-            for mt in msg_types
-            if mt in self._frames
-        ]
+        selected = [self._frames[mt] for mt in msg_types if mt in self._frames]
         skipped = [mt for mt in msg_types if mt not in self._frames]
         if skipped:
             logger.warning("Requested types not found in log: %s", skipped)
@@ -251,35 +439,26 @@ class LogExtractor:
             )
 
         combined = pd.concat(selected, ignore_index=True)
-        combined.sort_values("time_s", inplace=True)
+        combined.sort_values("time_s", inplace=True, kind="stable")
         combined.reset_index(drop=True, inplace=True)
 
         os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
         combined.to_parquet(output_path, index=False, engine="pyarrow")
         logger.info("Exported %d rows to %s", len(combined), output_path)
 
-        # Build schema summary for LLM prompt
-        summary: Dict[str, dict] = {}
-        for mt in msg_types:
-            if mt not in self._frames:
-                continue
-            df = self._frames[mt]
-            cols = {}
-            for col in df.columns:
-                dtype = str(df[col].dtype)
-                if pd.api.types.is_numeric_dtype(df[col]):
-                    cols[col] = {
-                        "dtype": dtype,
-                        "min": round(float(df[col].min()), 6),
-                        "max": round(float(df[col].max()), 6),
-                    }
-                else:
-                    cols[col] = {"dtype": dtype}
-            summary[mt] = {"rows": len(df), "columns": cols}
-
-        return summary
+        return self.summary(msg_types)
 
     @property
     def frames(self) -> Dict[str, pd.DataFrame]:
         """The extracted frames dict. Empty until extract_all() is called."""
         return self._frames
+
+    @property
+    def units(self) -> Dict[str, Dict[str, str]]:
+        """Unit of each known column: msg_type -> {column: unit}."""
+        return self._units
+
+    @property
+    def raw_units(self) -> Dict[str, Dict[str, str]]:
+        """Units as stored in the log, before conversion."""
+        return self._raw_units
