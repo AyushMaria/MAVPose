@@ -125,3 +125,14 @@ class TestFixPromptSchema:
         schema = creator._fix_chain.invoke.call_args[0][0]["schema"]
         assert '"unit": "m"' in schema
         assert '"GLOBAL_POSITION_INT"' in schema
+
+
+class TestUlogInChat:
+
+    def test_set_logfile_accepts_ulg(self, creator, tmp_path):
+        from tests.log_builders import build_ulog
+
+        log = build_ulog(tmp_path / "flight.ulg")
+        creator.set_logfile_name(str(log))
+        summary = creator.extract_dataframes(["battery_status"])
+        assert summary["battery_status"]["columns"]["voltage_v"]["unit"] == "V"

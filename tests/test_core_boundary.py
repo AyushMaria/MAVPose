@@ -22,7 +22,8 @@ from mavpose.chat import _deps
 
 ROOT = Path(__file__).resolve().parent.parent
 CHAT_DIR = ROOT / "mavpose" / "chat"
-CORE_MODULES = ["mavpose", "mavpose.log_extractor", "mavpose.file_validator"]
+CORE_MODULES = ["mavpose", "mavpose.log_extractor", "mavpose.file_validator",
+                "mavpose.ulog_reader"]
 CHAT_ONLY_DEPS = ["langchain_openai", "langchain_core", "langchain_chroma",
                   "chromadb", "openai", "tiktoken", "dotenv", "matplotlib"]
 
@@ -61,6 +62,22 @@ class TestCoreIsIndependent:
         result = json.loads(out)
         assert result["bad"] == []
         assert result["alt"] == pytest.approx(594.0)
+
+    def test_core_reads_ulog_without_chat_dependency(self, tmp_path):
+        from tests.log_builders import build_ulog
+
+        log = build_ulog(tmp_path / "flight.ulg")
+        out = _run(
+            "import sys, json\n"
+            "from mavpose import LogExtractor\n"
+            f"frames = LogExtractor({str(log)!r}).extract_all()\n"
+            "v = float(frames['battery_status']['voltage_v'].iloc[0])\n"
+            f"bad = [m for m in {CHAT_ONLY_DEPS!r} if m in sys.modules]\n"
+            "print(json.dumps({'v': v, 'bad': bad}))\n"
+        )
+        result = json.loads(out)
+        assert result["bad"] == []
+        assert result["v"] == pytest.approx(16.2)
 
     def test_core_never_imports_chat_package(self):
         for path in (ROOT / "mavpose").glob("*.py"):
@@ -137,7 +154,7 @@ class TestMissingChatExtra:
             "try:\n    cli.main()\nexcept SystemExit:\n    pass\n"
             f"print([m for m in {CHAT_ONLY_DEPS!r} if m in sys.modules])\n"
         )
-        assert "Path to a MAVLink log file" in out
+        assert "Path to a flight log" in out
         assert out.strip().endswith("[]")
 
 

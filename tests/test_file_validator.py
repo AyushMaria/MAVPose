@@ -35,6 +35,11 @@ class TestValidateMavlinkFile:
         f.write_bytes(b"\x00" * 100)
         validate_mavlink_file(str(f))  # should not raise
 
+    def test_valid_ulg_file(self, tmp_path):
+        f = tmp_path / "log.ulg"
+        f.write_bytes(b"\x00" * 100)
+        validate_mavlink_file(str(f))  # should not raise
+
     def test_rejects_wrong_extension(self, tmp_path):
         f = tmp_path / "script.py"
         f.write_bytes(b"import os")

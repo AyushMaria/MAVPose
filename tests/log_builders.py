@@ -195,3 +195,116 @@ def build_dataflash_bin(path: Path) -> Path:
 
     path.write_bytes(bytes(out))
     return path
+
+
+# ---------------------------------------------------------------------------
+# PX4 ULog (.ulg)
+# ---------------------------------------------------------------------------
+#
+# Written directly from the ULog file-format spec
+# (https://docs.px4.io/main/en/dev_log/ulog_file_format.html):
+# 16-byte header, then messages of [uint16 size][uint8 type][payload].
+
+ULOG_START_US = 50_000_000        # logging started 50 s after boot
+ULOG_PRESTART_S = 0.5             # vehicle_status sample published before logging
+
+_ULOG_TYPES = {"uint64_t": "Q", "int32_t": "i", "uint8_t": "B", "float": "f", "double": "d"}
+
+# topic -> list of (c_type, field name, array length or None)
+_ULOG_FORMATS = {
+    # Old PX4: integer degE7 / mm GPS position
+    "vehicle_gps_position": [("uint64_t", "timestamp", None), ("int32_t", "lat", None),
+                             ("int32_t", "lon", None), ("int32_t", "alt", None),
+                             ("float", "vel_m_s", None), ("float", "eph", None)],
+    # New PX4: floating-point degrees and metres
+    "sensor_gps": [("uint64_t", "timestamp", None), ("double", "latitude_deg", None),
+                   ("double", "longitude_deg", None), ("double", "altitude_msl_m", None)],
+    "battery_status": [("uint64_t", "timestamp", None), ("float", "voltage_v", None),
+                       ("float", "current_a", None), ("float", "remaining", None),
+                       ("float", "temperature", None), ("float", "voltage_cell_v", 4)],
+    "vehicle_attitude": [("uint64_t", "timestamp", None), ("float", "q", 4),
+                         ("float", "rollspeed", None)],
+    "vehicle_status": [("uint64_t", "timestamp", None), ("uint8_t", "nav_state", None)],
+    # A topic that was never stamped (timestamp 0), as seen in real PX4 logs
+    "commander_state": [("uint64_t", "timestamp", None), ("uint8_t", "main_state", None)],
+}
+
+
+def ulog_samples():
+    n = int(DURATION_S * RATE_HZ) + 1
+    for i in range(n):
+        t = i / RATE_HZ
+        yield {
+            "t": t,
+            "us": ULOG_START_US + int(round(t * 1e6)),
+            "lat_deg": 47.3977419,
+            "lon_deg": 8.5455938,
+            "alt_m": 488.0 + t,
+            "volt_v": 16.2 - 0.01 * t,
+            "curr_a": 12.5,
+            "volt_v_1": 25.2,           # second battery (multi_id 1)
+        }
+
+
+def _ulog_msg(msg_type: str, payload: bytes) -> bytes:
+    return struct.pack("<HB", len(payload), ord(msg_type)) + payload
+
+
+def _ulog_struct(topic: str) -> str:
+    out = "<"
+    for ctype, _name, n in _ULOG_FORMATS[topic]:
+        out += (str(n) if n else "") + _ULOG_TYPES[ctype]
+    return out
+
+
+def build_ulog(path: Path, truncate_to: int | None = None) -> Path:
+    """Write a PX4 ULog describing the same 10-second flight."""
+    out = bytearray(b"ULog\x01\x12\x35" + bytes([1]) + struct.pack("<Q", ULOG_START_US))
+    # Flag bits (required first message for ULog v1+)
+    out += _ulog_msg("B", bytes(16) + struct.pack("<3Q", 0, 0, 0))
+    key = b"char[3] sys_name"
+    out += _ulog_msg("I", bytes([len(key)]) + key + b"PX4")
+    for topic, fields in _ULOG_FORMATS.items():
+        spec = ";".join(f"{c}{f'[{n}]' if n else ''} {name}" for c, name, n in fields) + ";"
+        out += _ulog_msg("F", f"{topic}:{spec}".encode())
+
+    # Subscriptions: (msg_id, multi_id, topic)
+    subs = [(0, 0, "vehicle_gps_position"), (1, 0, "sensor_gps"), (2, 0, "battery_status"),
+            (3, 1, "battery_status"), (4, 0, "vehicle_attitude"), (5, 0, "vehicle_status"),
+            (6, 0, "commander_state")]
+    for msg_id, multi_id, topic in subs:
+        out += _ulog_msg("A", struct.pack("<BH", multi_id, msg_id) + topic.encode())
+
+    def data(msg_id, topic, *values):
+        return _ulog_msg("D", struct.pack("<H", msg_id) + struct.pack(_ulog_struct(topic), *values))
+
+    # Published 0.5 s before logging started, and a never-stamped topic
+    out += data(5, "vehicle_status", ULOG_START_US - int(ULOG_PRESTART_S * 1e6), 0)
+    for _ in range(3):
+        out += data(6, "commander_state", 0, 1)
+
+    for i, s in enumerate(ulog_samples()):
+        us = s["us"]
+        warming_up = i < UNKNOWN_SAMPLES
+        if i % RATE_HZ == 0:
+            out += data(0, "vehicle_gps_position", us,
+                        int(round(s["lat_deg"] * 1e7)), int(round(s["lon_deg"] * 1e7)),
+                        int(round(s["alt_m"] * 1000)), 1.5, 0.8)
+            out += data(1, "sensor_gps", us, s["lat_deg"], s["lon_deg"], s["alt_m"])
+            out += data(5, "vehicle_status", us, 2)
+        # 4-cell slots, 3 cells fitted: slot 3 reads 0 (PX4's "unknown")
+        out += data(2, "battery_status", us + 10, s["volt_v"],
+                    -1.0 if warming_up else s["curr_a"],         # -1 = unknown
+                    0.8, 31.5, 4.05, 4.04, 4.06, 0.0)
+        out += data(3, "battery_status", us + 20, s["volt_v_1"], 3.0, 0.9, 30.0,
+                    4.2, 4.2, 4.2, 4.2)
+        out += data(4, "vehicle_attitude", us + 30, 1.0, 0.0, 0.0, 0.0, 0.01)
+        if i == 10:
+            out += _ulog_msg("L", b"6" + struct.pack("<Q", us) + b"[commander] Takeoff detected")
+        if i == 40:
+            out += _ulog_msg("L", b"4" + struct.pack("<Q", us) + b"[commander] Low battery")
+
+    if truncate_to is not None:
+        out = out[:truncate_to]
+    path.write_bytes(bytes(out))
+    return path

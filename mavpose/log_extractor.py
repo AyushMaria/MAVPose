@@ -5,9 +5,10 @@ Headless data layer for drone flight logs.
 
 Responsibilities
 ----------------
-1. Parse a MAVLink telemetry log (.tlog) or an ArduPilot DataFlash log
-   (.bin binary, .log text) into a dict of per-message-type pandas
-   DataFrames, each with a ``time_s`` column (seconds from log start).
+1. Parse a MAVLink telemetry log (.tlog), an ArduPilot DataFlash log
+   (.bin binary, .log text) or a PX4 ULog (.ulg) into a dict of
+   per-message-type pandas DataFrames, each with a ``time_s`` column
+   (seconds from log start).  ULog details live in ``ulog_reader``.
 2. Provide a lightweight schema-only pass that returns message-type
    metadata without materialising full DataFrames (used for embeddings).
 3. Export a subset of message types to a single Parquet file so the
@@ -216,7 +217,7 @@ class LogExtractor:
     Parameters
     ----------
     log_path:
-        Path to a .tlog, .bin or .log file.
+        Path to a .tlog, .bin, .log or .ulg file.
     convert_units:
         Convert scaled fields to natural units (mm → m, degE7 → deg,
         mV → V, …).  Defaults to True.
@@ -243,6 +244,8 @@ class LogExtractor:
         self._raw_units: Dict[str, Dict[str, str]] = {}
         self._unknown_counts: Dict[str, Dict[str, int]] = {}
         self._extracted = False
+        self._is_ulog = log_path.lower().endswith(".ulg")
+        self._ulog = None   # parsed pyulog.ULog, cached between passes
         self.stats: Dict[str, int] = {"messages": 0, "bad_data": 0, "errors": 0, "unknown_values": 0}
 
     # ------------------------------------------------------------------
@@ -306,6 +309,12 @@ class LogExtractor:
                 stats["bad_data"], stats["errors"], self.log_path, stats["messages"],
             )
 
+    def _parsed_ulog(self):
+        if self._ulog is None:
+            from mavpose.ulog_reader import read_ulog
+            self._ulog = read_ulog(self.log_path)
+        return self._ulog
+
     def _record_units(self, msg_type: str, msg) -> Dict[str, float]:
         """Record units for *msg_type* on first sight; return field factors."""
         raw = _raw_field_units(msg)
@@ -339,6 +348,13 @@ class LogExtractor:
                                   "fields": {name: type_str},
                                   "units": {name: unit}}
         """
+        if self._is_ulog:
+            from mavpose.ulog_reader import ulog_schema
+            schema = ulog_schema(self._parsed_ulog())
+            self._units.update({mt: dict(info["units"]) for mt, info in schema.items()})
+            self._schema = schema
+            return schema
+
         schema: Dict[str, dict] = {}
         for msg in self._iter_messages():
             mt = msg.get_type()
@@ -367,6 +383,9 @@ class LogExtractor:
         dict mapping msg_type -> pd.DataFrame with columns:
             time_s (float64), msg_type (str), <field_0>, <field_1>, ...
         """
+        if self._is_ulog:
+            return self._extract_ulog()
+
         raw: Dict[str, list] = {}  # msg_type -> list of row-dicts
         factors_by_type: Dict[str, Dict[str, float]] = {}
         markers_by_type: Dict[str, Dict[str, float]] = {}
@@ -445,6 +464,23 @@ class LogExtractor:
         self._frames = frames
         self._extracted = True
         logger.info("Extracted %d message types from %s", len(frames), self.log_path)
+        return frames
+
+    def _extract_ulog(self) -> Dict[str, pd.DataFrame]:
+        from mavpose.ulog_reader import ulog_frames
+
+        frames, units, raw_units, unknown_counts, stats = ulog_frames(
+            self._parsed_ulog(),
+            convert_units=self.convert_units,
+            filter_unknown=self.filter_unknown,
+        )
+        self._frames = frames
+        self._units = units
+        self._raw_units = raw_units
+        self._unknown_counts = unknown_counts
+        self.stats = stats
+        self._extracted = True
+        logger.info("Extracted %d topics from %s", len(frames), self.log_path)
         return frames
 
     def summary(self, msg_types: Optional[List[str]] = None) -> Dict[str, dict]:

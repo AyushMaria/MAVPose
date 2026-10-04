@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "mavpose"
 version = "0.1.0"
-description = "Clean, unit-correct telemetry from drone flight logs (MAVLink .tlog, ArduPilot .bin), with an optional plain-English plot assistant"
+description = "Clean, unit-correct telemetry from drone flight logs (MAVLink .tlog, ArduPilot .bin, PX4 .ulg), with an optional plain-English plot assistant"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.10"
@@ -14,6 +14,7 @@ dependencies = [
     "pymavlink>=2.4.37",
     "pandas>=2.0.0",
     "pyarrow>=14.0.0",
+    "pyulog>=1.1.0",
 ]
 
 [project.optional-dependencies]

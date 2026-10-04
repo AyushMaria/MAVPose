@@ -1,7 +1,7 @@
 """
 mavpose/file_validator.py
 
-Validates a MAVLink log file before it is passed to PlotCreator.
+Validates a flight log file (MAVLink, DataFlash or PX4 ULog) before it is passed to PlotCreator.
 
 Checks performed:
   1. File exists
@@ -13,7 +13,7 @@ Checks performed:
 
 import os
 
-VALID_EXTENSIONS = {".tlog", ".bin", ".log"}
+VALID_EXTENSIONS = {".tlog", ".bin", ".log", ".ulg"}
 
 # 200 MB default limit; tests monkeypatch this directly
 MAX_FILE_SIZE_BYTES: int = 200 * 1024 * 1024
