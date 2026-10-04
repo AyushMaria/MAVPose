@@ -9,12 +9,12 @@ tiktoken>=0.5.0
 chromadb>=0.5.0
 
 # MAVLink & plotting
-pymavlink==2.4.37
-matplotlib==3.7.1
+pymavlink>=2.4.37
+matplotlib>=3.8
 
 # Telemetry extraction — headless DB-query layer
 pandas>=2.0.0
 pyarrow>=14.0.0
 
 # Config
-python-dotenv==1.0.0
+python-dotenv>=1.0.0
