@@ -31,11 +31,11 @@ $ python cli.py flight.tlog --prompt "Plot altitude over time"
 │  🗃️  Extracted Parquet schema                               │
 ├──────────────────────────────────────────────────────────┤
 │  [GLOBAL_POSITION_INT]  1842 rows                          │
-│      time_s: float64  [0.0 … 312.4]                       │
-│      alt: float64  [487320 … 512100]                      │
+│      time_s: float64 s  [0.0 … 312.4]                     │
+│      alt: float64 m  [487.32 … 512.1]                     │
 │  [VFR_HUD]  1842 rows                                      │
-│      time_s: float64  [0.0 … 312.4]                       │
-│      alt: float64  [476.1 … 501.3]                        │
+│      time_s: float64 s  [0.0 … 312.4]                     │
+│      alt: float64 m  [476.1 … 501.3]                      │
 └──────────────────────────────────────────────────────────┘
    Saved → /path/to/telemetry.parquet
 
@@ -94,7 +94,10 @@ $ python cli.py flight.tlog --prompt "Plot altitude over time"
 ## Features
 
 - **Plain-English plots** — describe any flight data; MAVPose figures out which MAVLink fields to use
-- **Headless extraction layer** — `LogExtractor` parses the log into per-message-type DataFrames with a monotonic `time_s` index before the LLM is ever invoked
+- **Headless extraction layer** — `LogExtractor` parses MAVLink `.tlog` and ArduPilot DataFlash `.bin`/`.log` files into per-message-type DataFrames before the LLM is ever invoked:
+  - **one clock** — every message type shares a single `time_s` axis (tlog receive time, or DataFlash `TimeUS`); native time fields are kept as columns
+  - **real units** — scaled fields are converted using the log's own unit metadata (`alt` mm → m, `lat` degE7 → deg, `voltage_battery` mV → V, …) and every column's unit is reported; pass `convert_units=False` for raw values
+  - **corruption-tolerant** — bad packets are skipped and counted (`extractor.stats`) instead of silently ending the parse
 - **Clean Parquet handoff** — only the relevant message types are exported; the LLM sees exact column names, dtypes, min/max ranges — no binary guesswork
 - **Semantic field search** — ChromaDB vector embeddings surface the most relevant message types for your query
 - **Self-healing scripts** — LLM debugs and rewrites failing scripts up to N times; fix prompt also includes the full schema
@@ -264,21 +267,23 @@ extractor = LogExtractor("flight.tlog")
 
 # Fast schema scan (no DataFrame allocation)
 schema = extractor.schema_only()
-# {"GLOBAL_POSITION_INT": {"count": 1842, "fields": {"lat": "int", ...}}, ...}
+# {"GLOBAL_POSITION_INT": {"count": 1842, "fields": {"lat": "int", ...}, "units": {"lat": "deg", ...}}, ...}
 
 # Full extraction into DataFrames
 frames = extractor.extract_all()
 # {"GLOBAL_POSITION_INT": pd.DataFrame([time_s, msg_type, lat, lon, alt, ...]), ...}
+extractor.units["GLOBAL_POSITION_INT"]["alt"]   # "m"
+extractor.stats                                   # {"messages": ..., "bad_data": 0, "errors": 0}
 
 # Export to Parquet and get schema summary for the LLM
 summary = extractor.export_parquet(["GLOBAL_POSITION_INT", "VFR_HUD"], "telemetry.parquet")
-# {"GLOBAL_POSITION_INT": {"rows": 1842, "columns": {"time_s": {"dtype": "float64", "min": 0.0, "max": 312.4}, ...}}}
+# {"GLOBAL_POSITION_INT": {"rows": 1842, "columns": {"alt": {"dtype": "float64", "unit": "m", "min": 487.32, "max": 512.1}, ...}}}
 ```
 
 ## Core API — `PlotCreator`
 
 ```python
-from llm.gptPlotCreator import PlotCreator
+from mavpose import PlotCreator
 
 creator = PlotCreator(max_retries=3)
 creator.set_logfile_name("flight.tlog")

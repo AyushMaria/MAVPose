@@ -30,7 +30,6 @@ import os
 import re
 from typing import Dict, List, Optional
 
-import pandas as pd
 from dotenv import load_dotenv
 from langchain_chroma import Chroma
 from langchain_core.output_parsers import StrOutputParser
@@ -104,7 +103,10 @@ class PlotCreator:
                 "- Read the data with: df = pd.read_parquet('{parquet_file}')\n"
                 "- Filter rows by msg_type when needed, e.g.:\n"
                 "    df_gps = df[df['msg_type'] == 'GLOBAL_POSITION_INT']\n"
-                "- The 'time_s' column is always float64 seconds from log start.\n"
+                "- The 'time_s' column is always float64 seconds from log start,\n"
+                "  on one clock shared by every msg_type.\n"
+                "- Each column's unit is given in the schema. Values are already\n"
+                "  in that unit: do not rescale them. Put units in axis labels.\n"
                 "- Plot each independent variable over time_s on its own axis or subplot.\n"
                 "- Save the figure to '{output_file}' at dpi=400. Do NOT call plt.show().\n"
                 "- Return ONLY the script inside a markdown ```python``` block.\n"
@@ -353,25 +355,11 @@ class PlotCreator:
         with open(self.script_path, "r") as fh:
             script = fh.read()
 
-        # Rebuild schema summary from cached extractor frames
+        # Schema summary (with units) from the cached extraction
         schema_text = "{}"
         if self._extractor and self._extractor.frames:
             try:
-                summary: Dict[str, dict] = {}
-                for mt, df in self._extractor.frames.items():
-                    cols = {}
-                    for col in df.columns:
-                        dtype = str(df[col].dtype)
-                        if pd.api.types.is_numeric_dtype(df[col]):
-                            cols[col] = {
-                                "dtype": dtype,
-                                "min": round(float(df[col].min()), 6),
-                                "max": round(float(df[col].max()), 6),
-                            }
-                        else:
-                            cols[col] = {"dtype": dtype}
-                    summary[mt] = {"rows": len(df), "columns": cols}
-                schema_text = json.dumps(summary, indent=2)
+                schema_text = json.dumps(self._extractor.summary(), indent=2)
             except Exception as exc:
                 logger.warning("Could not rebuild schema for fix prompt: %s", exc)
 
