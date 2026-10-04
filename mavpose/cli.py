@@ -78,10 +78,11 @@ def _print_parquet_summary(schema_summary: dict) -> None:
     for mt, info in schema_summary.items():
         print(f"│  [{mt}]  {info['rows']} rows" + " " * max(0, 40 - len(mt) - len(str(info['rows']))) + "│")
         for col, meta in info["columns"].items():
+            unit = f" {meta['unit']}" if meta.get("unit") else ""
             if "min" in meta:
-                line = f"│      {col}: {meta['dtype']}  [{meta['min']} … {meta['max']}]"
+                line = f"│      {col}: {meta['dtype']}{unit}  [{meta['min']} … {meta['max']}]"
             else:
-                line = f"│      {col}: {meta['dtype']}"
+                line = f"│      {col}: {meta['dtype']}{unit}"
             # Pad / truncate to fit box width
             line = line[:59].ljust(59) + "│"
             print(line)
