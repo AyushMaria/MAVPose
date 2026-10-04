@@ -11,7 +11,6 @@ fake mavutil.mavlink_connection that yields synthetic MAVLink messages.
 from __future__ import annotations
 
 import os
-import types
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -111,7 +110,7 @@ class TestSchemaOnly:
             _make_msg("GPS_RAW_INT", {"lat": 473_977_000, "lon": 85_450_000}),
         ]
 
-        with patch("llm.log_extractor.mavutil.mavlink_connection",
+        with patch("mavpose.log_extractor.mavutil.mavlink_connection",
                    return_value=_fake_connection(msgs)):
             schema = LogExtractor(str(f)).schema_only()
 
@@ -128,7 +127,7 @@ class TestSchemaOnly:
         bad = MagicMock()
         bad.get_type.return_value = "BAD_DATA"
 
-        with patch("llm.log_extractor.mavutil.mavlink_connection",
+        with patch("mavpose.log_extractor.mavutil.mavlink_connection",
                    return_value=_fake_connection([bad])):
             schema = LogExtractor(str(f)).schema_only()
 
@@ -146,7 +145,7 @@ class TestExtractAll:
             _make_msg("SYS_STATUS", {"voltage_battery": 12100}, ts_usec=1_500_000),
         ]
 
-        with patch("llm.log_extractor.mavutil.mavlink_connection",
+        with patch("mavpose.log_extractor.mavutil.mavlink_connection",
                    return_value=_fake_connection(msgs)):
             extractor = LogExtractor(str(f))
             frames = extractor.extract_all()
@@ -166,7 +165,7 @@ class TestExtractAll:
             _make_msg("HEARTBEAT", {"type": 6}, ts_usec=1_001_000_000),
         ]
 
-        with patch("llm.log_extractor.mavutil.mavlink_connection",
+        with patch("mavpose.log_extractor.mavutil.mavlink_connection",
                    return_value=_fake_connection(msgs)):
             frames = LogExtractor(str(f)).extract_all()
 
@@ -184,7 +183,7 @@ class TestExtractAll:
             _make_msg("NAMED_VALUE_FLOAT", {"value": 2.0}),
         ]
 
-        with patch("llm.log_extractor.mavutil.mavlink_connection",
+        with patch("mavpose.log_extractor.mavutil.mavlink_connection",
                    return_value=_fake_connection(msgs)):
             frames = LogExtractor(str(f)).extract_all()
 
@@ -204,11 +203,11 @@ class TestExportParquet:
             _make_msg("ATTITUDE", {"roll": 0.2, "pitch": 0.10}, ts_usec=2_000_000),
         ]
 
-        with patch("llm.log_extractor.mavutil.mavlink_connection",
+        with patch("mavpose.log_extractor.mavutil.mavlink_connection",
                    return_value=_fake_connection(msgs)):
             extractor = LogExtractor(str(f))
             extractor.extract_all()
-            summary = extractor.export_parquet(["ATTITUDE"], out)
+            extractor.export_parquet(["ATTITUDE"], out)
 
         assert os.path.exists(out)
         df = pd.read_parquet(out)
@@ -225,7 +224,7 @@ class TestExportParquet:
             _make_msg("ATTITUDE", {"roll": 0.1, "pitch": -0.05}, ts_usec=1_000_000),
         ]
 
-        with patch("llm.log_extractor.mavutil.mavlink_connection",
+        with patch("mavpose.log_extractor.mavutil.mavlink_connection",
                    return_value=_fake_connection(msgs)):
             extractor = LogExtractor(str(f))
             extractor.extract_all()
@@ -252,7 +251,7 @@ class TestExportParquet:
 
         msgs = [_make_msg("HEARTBEAT", {"type": 6}, ts_usec=1_000_000)]
 
-        with patch("llm.log_extractor.mavutil.mavlink_connection",
+        with patch("mavpose.log_extractor.mavutil.mavlink_connection",
                    return_value=_fake_connection(msgs)):
             extractor = LogExtractor(str(f))
             extractor.extract_all()
@@ -266,7 +265,7 @@ class TestExportParquet:
 
         msgs = [_make_msg("HEARTBEAT", {"type": 6}, ts_usec=1_000_000)]
 
-        with patch("llm.log_extractor.mavutil.mavlink_connection",
+        with patch("mavpose.log_extractor.mavutil.mavlink_connection",
                    return_value=_fake_connection(msgs)):
             extractor = LogExtractor(str(f))
             extractor.extract_all()

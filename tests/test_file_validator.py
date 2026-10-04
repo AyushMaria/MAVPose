@@ -1,12 +1,10 @@
 """
 tests/test_file_validator.py
 
-Unit tests for llm/file_validator.py.
+Unit tests for mavpose/file_validator.py.
 Uses tmp_path (pytest fixture) to create real temporary files.
 """
 
-import os
-import sys
 import pytest
 from mavpose.file_validator import validate_mavlink_file, FileValidationError
 
@@ -59,7 +57,7 @@ class TestValidateMavlinkFile:
         f = tmp_path / "big.tlog"
         f.write_bytes(b"\x00" * 100)
         # Patch stat to report a huge size without writing 200 MB to disk
-        import llm.file_validator as fv
+        import mavpose.file_validator as fv
         original_limit = fv.MAX_FILE_SIZE_BYTES
         fv.MAX_FILE_SIZE_BYTES = 50  # temporarily lower the limit
         with pytest.raises(FileValidationError, match="exceeds"):
