@@ -140,8 +140,8 @@ MAVPose has two layers. Install only what you need:
 
 | You want… | Install | Footprint |
 |---|---|---|
-| Clean, unit-correct telemetry in pandas / Parquet (no AI) | `pip install mavpose` | 14 packages |
-| …plus the plain-English plot assistant (`mavpose` command) | `pip install "mavpose[chat]"` | ~116 packages |
+| Clean, unit-correct telemetry in pandas / Parquet (no AI) | `pip install mavpose` | 9 packages |
+| …plus the plain-English plot assistant (`mavpose` command) | `pip install "mavpose[chat]"` | ~113 packages |
 
 The core never imports the chat layer, so `pip install mavpose` has no LLM, vector-store or plotting dependencies.
 
