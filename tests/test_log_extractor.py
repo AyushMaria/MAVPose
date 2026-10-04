@@ -16,7 +16,13 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
-from mavpose.log_extractor import LogExtractor, _to_float, resolve_unit
+from mavpose.log_extractor import (
+    LogExtractor,
+    _is_unknown,
+    _to_float,
+    resolve_unit,
+    unknown_markers,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -90,6 +96,42 @@ class TestResolveUnit:
     def test_empty(self):
         assert resolve_unit("") == (1.0, None)
         assert resolve_unit(None) == (1.0, None)
+
+
+class TestUnknownMarkerTable:
+    """The shipped table generated from the MAVLink XML."""
+
+    def test_known_entries(self):
+        m = unknown_markers()
+        assert m["SYS_STATUS"]["current_battery"] == -1
+        assert m["SYS_STATUS"]["battery_remaining"] == -1
+        assert m["SYS_STATUS"]["voltage_battery"] == 65535
+        assert m["GPS_RAW_INT"]["eph"] == 65535
+        assert m["GPS_RAW_INT"]["satellites_visible"] == 255
+        assert m["GLOBAL_POSITION_INT"]["hdg"] == 65535
+        assert m["BATTERY_STATUS"]["temperature"] == 32767
+
+    def test_enum_marker_resolved(self):
+        # invalid="MAV_LANDED_STATE_UNDEFINED" resolves to the enum value 0
+        assert unknown_markers()["AUTOPILOT_STATE_FOR_GIMBAL_DEVICE"]["landed_state"] == 0
+
+    def test_excluded_fields_absent(self):
+        m = unknown_markers()
+        assert "intended_custom_mode" not in m.get("CURRENT_MODE", {})
+        assert "link_tx_rate" not in m.get("CELLULAR_STATUS", {})
+
+    def test_messages_without_markers_absent(self):
+        assert "VFR_HUD" not in unknown_markers()
+
+    def test_nan_markers(self):
+        import math
+        assert any(
+            isinstance(v, float) and math.isnan(v)
+            for fields in unknown_markers().values() for v in fields.values()
+        )
+        assert _is_unknown(float("nan"), float("nan"))
+        assert not _is_unknown(1.0, float("nan"))
+        assert _is_unknown(-1, -1) and not _is_unknown(0, -1)
 
 
 # ---------------------------------------------------------------------------
@@ -307,7 +349,7 @@ class TestCorruptData:
             ex = LogExtractor(str(f))
             ex.extract_all()
 
-        assert ex.stats == {"messages": 1, "bad_data": 2, "errors": 0}
+        assert ex.stats == {"messages": 1, "bad_data": 2, "errors": 0, "unknown_values": 0}
 
     def test_gives_up_after_many_consecutive_errors(self, tmp_path, caplog, monkeypatch):
         import mavpose.log_extractor as le

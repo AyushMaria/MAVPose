@@ -28,6 +28,11 @@ Design notes
   DataFlash units come from the log's FMTU/UNIT/MULT records.  The
   resulting unit of every column is available via :attr:`units` and is
   included in the schema summary.  Time-valued fields are not rescaled.
+* **Unknown markers removed.**  MAVLink fields that use a sentinel for
+  "not provided" (e.g. ``current_battery = -1``, ``eph = UINT16_MAX``) are
+  set to NaN, using the ``invalid`` markers from the official MAVLink
+  definitions (``mavpose/data/mavlink_unknown_markers.json``).  Counts are
+  reported per column (see :attr:`unknown_counts`).
 * **Robust parsing.**  Corrupt packets are skipped and counted rather
   than ending the parse; a warning reports the totals (see :attr:`stats`).
 * Non-scalar fields (arrays) are dropped; numeric columns are float64.
@@ -35,9 +40,13 @@ Design notes
 
 from __future__ import annotations
 
+import json
 import logging
+import math
 import os
 import re
+from functools import lru_cache
+from importlib import resources
 from typing import Dict, Iterator, List, Optional, Tuple
 
 import pandas as pd
@@ -94,6 +103,31 @@ _FACTOR_UNIT_RE = re.compile(r"^\s*([-+0-9.eE]+)\s+(\S+)\s*$")
 
 # Units that measure time; these are never rescaled.
 _TIME_UNITS = {"s", "ms", "us", "µs", "ns", "ds", "cs"}
+
+
+@lru_cache(maxsize=1)
+def unknown_markers() -> Dict[str, Dict[str, float]]:
+    """
+    MAVLink "unknown value" sentinels: msg_type -> {field: marker}.
+
+    Generated from the MAVLink XML ``invalid`` attributes by
+    tools/gen_unknown_markers.py.  A marker of NaN means NaN is the sentinel.
+    """
+    text = resources.files("mavpose").joinpath(
+        "data/mavlink_unknown_markers.json"
+    ).read_text(encoding="utf-8")
+    raw = json.loads(text)["markers"]
+    return {
+        msg: {f: (math.nan if v == "NaN" else v) for f, v in fields.items()}
+        for msg, fields in raw.items()
+    }
+
+
+def _is_unknown(value, marker) -> bool:
+    """True if *value* equals the field's unknown marker."""
+    if isinstance(marker, float) and math.isnan(marker):
+        return isinstance(value, float) and math.isnan(value)
+    return value == marker
 
 
 def _to_float(value) -> Optional[float]:
@@ -186,20 +220,30 @@ class LogExtractor:
     convert_units:
         Convert scaled fields to natural units (mm → m, degE7 → deg,
         mV → V, …).  Defaults to True.
+    filter_unknown:
+        Replace MAVLink "unknown" sentinels (e.g. ``current_battery = -1``)
+        with NaN.  Defaults to True.
     """
 
-    def __init__(self, log_path: str, convert_units: bool = True) -> None:
+    def __init__(
+        self,
+        log_path: str,
+        convert_units: bool = True,
+        filter_unknown: bool = True,
+    ) -> None:
         if not os.path.exists(log_path):
             raise FileNotFoundError(f"Log file not found: {log_path}")
         self.log_path = log_path
         self.convert_units = convert_units
+        self.filter_unknown = filter_unknown
         # Populated after extract_all()
         self._frames: Dict[str, pd.DataFrame] = {}
         self._schema: Dict[str, dict] = {}   # msg_type -> {count, fields, units}
         self._units: Dict[str, Dict[str, str]] = {}   # msg_type -> {col: unit}
         self._raw_units: Dict[str, Dict[str, str]] = {}
+        self._unknown_counts: Dict[str, Dict[str, int]] = {}
         self._extracted = False
-        self.stats: Dict[str, int] = {"messages": 0, "bad_data": 0, "errors": 0}
+        self.stats: Dict[str, int] = {"messages": 0, "bad_data": 0, "errors": 0, "unknown_values": 0}
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -213,7 +257,7 @@ class LogExtractor:
         :attr:`stats` instead of stopping the parse.  Parsing only gives up
         after ``MAX_CONSECUTIVE_ERRORS`` exceptions in a row.
         """
-        stats = {"messages": 0, "bad_data": 0, "errors": 0}
+        stats = {"messages": 0, "bad_data": 0, "errors": 0, "unknown_values": 0}
         self.stats = stats
         mav = mavutil.mavlink_connection(self.log_path)
         consecutive_errors = 0
@@ -325,6 +369,9 @@ class LogExtractor:
         """
         raw: Dict[str, list] = {}  # msg_type -> list of row-dicts
         factors_by_type: Dict[str, Dict[str, float]] = {}
+        markers_by_type: Dict[str, Dict[str, float]] = {}
+        unknown_counts: Dict[str, Dict[str, int]] = {}
+        all_markers = unknown_markers() if self.filter_unknown else {}
         t0: Optional[float] = None
         untimed = 0
 
@@ -340,13 +387,21 @@ class LogExtractor:
 
             if mt not in factors_by_type:
                 factors_by_type[mt] = self._record_units(mt, msg)
+                # Sentinels are defined for MAVLink messages only
+                is_mavlink = isinstance(getattr(msg, "fieldunits_by_name", None), dict)
+                markers_by_type[mt] = all_markers.get(mt, {}) if is_mavlink else {}
             factors = factors_by_type[mt]
+            markers = markers_by_type[mt]
 
             row: dict = {"time_s": ts - t0, "msg_type": mt}
             for field in msg.get_fieldnames():
                 val = getattr(msg, field, None)
                 # Keep scalars only — drop lists / nested objects
-                if isinstance(val, bool):
+                if field in markers and _is_unknown(val, markers[field]):
+                    row[field] = None
+                    counts = unknown_counts.setdefault(mt, {})
+                    counts[field] = counts.get(field, 0) + 1
+                elif isinstance(val, bool):
                     row[field] = val
                 elif isinstance(val, (int, float)):
                     factor = factors.get(field)
@@ -363,6 +418,15 @@ class LogExtractor:
                 "Dropped %d message(s) without a timestamp from %s.",
                 untimed, self.log_path,
             )
+        self._unknown_counts = unknown_counts
+        self.stats["unknown_values"] = sum(
+            n for fields in unknown_counts.values() for n in fields.values()
+        )
+        if self.stats["unknown_values"]:
+            logger.info(
+                "Replaced %d MAVLink 'unknown' marker value(s) with NaN in %s.",
+                self.stats["unknown_values"], self.log_path,
+            )
 
         # Build DataFrames
         frames: Dict[str, pd.DataFrame] = {}
@@ -371,6 +435,8 @@ class LogExtractor:
             for col in df.columns:
                 if col not in _RESERVED_COLS:
                     df[col] = _coerce_numeric(df[col])
+                    if df[col].dtype == object and df[col].isna().all():
+                        df[col] = df[col].astype("float64")   # all unknown
             df.sort_values("time_s", inplace=True, kind="stable")
             df.reset_index(drop=True, inplace=True)
             frames[mt] = df
@@ -385,7 +451,11 @@ class LogExtractor:
         """
         Schema summary for extracted message types, suitable for an LLM
         prompt: msg_type -> {"rows": int,
-                             "columns": {col: {dtype, unit?, min?, max?}}}.
+                             "columns": {col: {dtype, unit?, min?, max?,
+                                               unknown?}}}.
+
+        ``unknown`` is the number of rows where the field held MAVLink's
+        "not provided" marker (now NaN).
         """
         if not self._extracted:
             raise RuntimeError("Call extract_all() before summary().")
@@ -396,6 +466,7 @@ class LogExtractor:
                 continue
             df = self._frames[mt]
             units = self._units.get(mt, {})
+            unknown = self._unknown_counts.get(mt, {})
             cols = {}
             for col in df.columns:
                 meta: dict = {"dtype": str(df[col].dtype)}
@@ -404,6 +475,8 @@ class LogExtractor:
                 if pd.api.types.is_numeric_dtype(df[col]) and df[col].notna().any():
                     meta["min"] = round(float(df[col].min()), 6)
                     meta["max"] = round(float(df[col].max()), 6)
+                if unknown.get(col):
+                    meta["unknown"] = unknown[col]
                 cols[col] = meta
             summary[mt] = {"rows": len(df), "columns": cols}
         return summary
@@ -462,3 +535,8 @@ class LogExtractor:
     def raw_units(self) -> Dict[str, Dict[str, str]]:
         """Units as stored in the log, before conversion."""
         return self._raw_units
+
+    @property
+    def unknown_counts(self) -> Dict[str, Dict[str, int]]:
+        """Rows set to NaN per field: msg_type -> {field: count}."""
+        return self._unknown_counts

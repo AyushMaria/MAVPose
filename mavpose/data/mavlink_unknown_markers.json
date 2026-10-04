@@ -1,0 +1,630 @@
+{
+ "_source": "https://github.com/mavlink/mavlink @ 527637c (message_definitions/v1.0, field 'invalid' attributes)",
+ "_generator": "tools/gen_unknown_markers.py",
+ "_excluded": [
+  "CELLULAR_STATUS.link_rx_rate",
+  "CELLULAR_STATUS.link_tx_rate",
+  "CURRENT_MODE.intended_custom_mode"
+ ],
+ "markers": {
+  "ADSB_VEHICLE": {
+   "altitude": 2147483647,
+   "heading": 65535,
+   "hor_velocity": 65535,
+   "lat": 2147483647,
+   "lon": 2147483647,
+   "ver_velocity": 32767
+  },
+  "AIRSPEED": {
+   "raw_press": "NaN",
+   "temperature": 32767
+  },
+  "AIS_VESSEL": {
+   "COG": 65535,
+   "dimension_bow": 65535,
+   "dimension_port": 255,
+   "dimension_starboard": 255,
+   "dimension_stern": 65535,
+   "heading": 65535,
+   "lat": 2147483647,
+   "lon": 2147483647,
+   "turn_rate": 127,
+   "velocity": 65535
+  },
+  "AUTOPILOT_STATE_FOR_GIMBAL_DEVICE": {
+   "angular_velocity_z": 0,
+   "feed_forward_angular_velocity_z": "NaN",
+   "landed_state": 0,
+   "q_estimated_delay_us": 0,
+   "v_estimated_delay_us": 0,
+   "vx": "NaN",
+   "vy": "NaN",
+   "vz": "NaN"
+  },
+  "AUTOPILOT_STATE_FOR_GIMBAL_DEVICE_EXT": {
+   "wind_correction_angle": "NaN",
+   "wind_x": "NaN",
+   "wind_y": "NaN"
+  },
+  "BATTERY_INFO": {
+   "cells_in_series": 0,
+   "charging_maximum_current": 0,
+   "charging_maximum_voltage": 0,
+   "charging_minimum_voltage": 0,
+   "cycle_count": 65535,
+   "design_capacity": 0,
+   "discharge_maximum_burst_current": 0,
+   "discharge_maximum_current": 0,
+   "discharge_minimum_voltage": 0,
+   "full_charge_capacity": "NaN",
+   "nominal_voltage": 0,
+   "resting_minimum_voltage": 0,
+   "state_of_health": 255,
+   "weight": 0
+  },
+  "BATTERY_STATUS": {
+   "battery_remaining": -1,
+   "current_battery": -1,
+   "current_consumed": -1,
+   "energy_consumed": -1,
+   "temperature": 32767,
+   "time_remaining": 0
+  },
+  "BATTERY_STATUS_V2": {
+   "capacity_consumed": "NaN",
+   "capacity_remaining": "NaN",
+   "current": "NaN",
+   "state_of_charge": "NaN",
+   "temperature": 32767,
+   "voltage": "NaN"
+  },
+  "CAMERA_FOV_STATUS": {
+   "alt_camera": 2147483647,
+   "alt_image": 2147483647,
+   "hfov": "NaN",
+   "lat_camera": 2147483647,
+   "lat_image": 2147483647,
+   "lon_camera": 2147483647,
+   "lon_image": 2147483647,
+   "vfov": "NaN"
+  },
+  "CAMERA_IMAGE_CAPTURED": {
+   "time_utc": 0
+  },
+  "CAMERA_INFORMATION": {
+   "firmware_version": 0,
+   "focal_length": "NaN",
+   "gimbal_device_id": 0,
+   "lens_id": 0,
+   "resolution_h": 0,
+   "resolution_v": 0,
+   "sensor_size_h": "NaN",
+   "sensor_size_v": "NaN"
+  },
+  "CAMERA_SETTINGS": {
+   "focusLevel": "NaN",
+   "zoomLevel": "NaN"
+  },
+  "CAMERA_THERMAL_RANGE": {
+   "max_point_x": "NaN",
+   "max_point_y": "NaN",
+   "min_point_x": "NaN",
+   "min_point_y": "NaN"
+  },
+  "CAMERA_TRACKING_GEO_STATUS": {
+   "dist": "NaN",
+   "h_acc": "NaN",
+   "hdg": "NaN",
+   "hdg_acc": "NaN",
+   "v_acc": "NaN",
+   "vel_acc": "NaN",
+   "vel_d": "NaN",
+   "vel_e": "NaN",
+   "vel_n": "NaN"
+  },
+  "CAMERA_TRACKING_IMAGE_STATUS": {
+   "point_x": "NaN",
+   "point_y": "NaN",
+   "radius": "NaN",
+   "rec_bottom_x": "NaN",
+   "rec_bottom_y": "NaN",
+   "rec_top_x": "NaN",
+   "rec_top_y": "NaN"
+  },
+  "CELLULAR_STATUS": {
+   "band_frequency": 0,
+   "band_number": 0,
+   "channel_number": 0,
+   "lac": 0,
+   "mcc": 65535,
+   "mnc": 65535,
+   "quality": 255,
+   "rx_level": 0,
+   "rx_quality": 0,
+   "sinr": 0,
+   "tx_level": 0
+  },
+  "COMMAND_ACK": {
+   "progress": 255
+  },
+  "COMMAND_INT": {
+   "param1": "NaN",
+   "param2": "NaN",
+   "param3": "NaN",
+   "param4": "NaN",
+   "x": 2147483647,
+   "y": 2147483647,
+   "z": "NaN"
+  },
+  "COMMAND_LONG": {
+   "param1": "NaN",
+   "param2": "NaN",
+   "param3": "NaN",
+   "param4": "NaN",
+   "param5": "NaN",
+   "param6": "NaN",
+   "param7": "NaN"
+  },
+  "COMPONENT_INFORMATION_BASIC": {
+   "time_manufacture_s": 0
+  },
+  "CONTROL_STATUS": {
+   "gcs_main": 0
+  },
+  "CONTROL_SYSTEM_STATE": {
+   "airspeed": -1
+  },
+  "DISTANCE_SENSOR": {
+   "covariance": 255,
+   "horizontal_fov": 0,
+   "signal_quality": 0,
+   "vertical_fov": 0
+  },
+  "DISTANCE_SENSOR_INFO": {
+   "horizontal_fov": "NaN",
+   "max_distance": "NaN",
+   "min_distance": "NaN",
+   "vertical_fov": "NaN"
+  },
+  "DISTANCE_SENSOR_V2": {
+   "distance": "NaN",
+   "signal_quality": 127
+  },
+  "EFI_PERFORMANCE": {
+   "boost_pressure": "NaN",
+   "commanded_rpm": "NaN",
+   "coolant_pressure": "NaN",
+   "ecu_cpu_load": 255,
+   "ecu_current": 65535,
+   "ecu_supply_voltage": 65535,
+   "ecu_temperature": 32767,
+   "engine_runtime": 4294967295,
+   "engine_torque": 32767,
+   "error_memory_count": 255,
+   "fuel_mass_rate": "NaN",
+   "fuel_pump_current": 65535,
+   "fuel_pump_duty_cycle": 255,
+   "fuel_pump_voltage": 65535,
+   "injector_duty_cycle": 255,
+   "servo_output_level": 255,
+   "servo_supply_voltage": 65535,
+   "water_pump_duty_cycle": 255
+  },
+  "EYE_TRACKING_DATA": {
+   "gaze_direction_x": "NaN",
+   "gaze_direction_y": "NaN",
+   "gaze_direction_z": "NaN",
+   "gaze_origin_x": "NaN",
+   "gaze_origin_y": "NaN",
+   "gaze_origin_z": "NaN",
+   "surface_gaze_x": "NaN",
+   "surface_gaze_y": "NaN",
+   "surface_id": 0,
+   "video_gaze_x": "NaN",
+   "video_gaze_y": "NaN"
+  },
+  "FLIGHT_INFORMATION": {
+   "arming_time_utc": 0,
+   "flight_uuid": 0,
+   "landing_time": 0,
+   "takeoff_time_utc": 0
+  },
+  "FUEL_STATUS": {
+   "consumed_fuel": "NaN",
+   "flow_rate": "NaN",
+   "percent_remaining": 255,
+   "remaining_fuel": "NaN",
+   "temperature": "NaN"
+  },
+  "GENERATOR_STATUS": {
+   "bat_current_setpoint": "NaN",
+   "battery_current": "NaN",
+   "generator_speed": 65535,
+   "generator_temperature": 32767,
+   "load_current": "NaN",
+   "power_generated": "NaN",
+   "rectifier_temperature": 32767,
+   "runtime": 4294967295,
+   "time_until_maintenance": 2147483647
+  },
+  "GIMBAL_DEVICE_ATTITUDE_STATUS": {
+   "angular_velocity_x": "NaN",
+   "angular_velocity_y": "NaN",
+   "angular_velocity_z": "NaN",
+   "delta_yaw": "NaN",
+   "delta_yaw_velocity": "NaN",
+   "gimbal_device_id": 0
+  },
+  "GIMBAL_DEVICE_INFORMATION": {
+   "cap_flags2": 0,
+   "gimbal_device_id": 0,
+   "pitch_max": "NaN",
+   "pitch_min": "NaN",
+   "roll_max": "NaN",
+   "roll_min": "NaN",
+   "uid": 0,
+   "yaw_max": "NaN",
+   "yaw_min": "NaN"
+  },
+  "GIMBAL_DEVICE_SET_ATTITUDE": {
+   "angular_velocity_x": "NaN",
+   "angular_velocity_y": "NaN",
+   "angular_velocity_z": "NaN"
+  },
+  "GIMBAL_MANAGER_SET_ATTITUDE": {
+   "angular_velocity_x": "NaN",
+   "angular_velocity_y": "NaN",
+   "angular_velocity_z": "NaN"
+  },
+  "GIMBAL_MANAGER_SET_MANUAL_CONTROL": {
+   "pitch": "NaN",
+   "pitch_rate": "NaN",
+   "yaw": "NaN",
+   "yaw_rate": "NaN"
+  },
+  "GIMBAL_MANAGER_SET_PITCHYAW": {
+   "pitch": "NaN",
+   "pitch_rate": "NaN",
+   "yaw": "NaN",
+   "yaw_rate": "NaN"
+  },
+  "GLOBAL_POSITION_INT": {
+   "hdg": 65535
+  },
+  "GLOBAL_POSITION_SENSOR": {
+   "alt": "NaN",
+   "alt_ellipsoid": "NaN",
+   "eph": "NaN",
+   "epv": "NaN",
+   "lat": 2147483647,
+   "lon": 2147483647
+  },
+  "GNSS_INTEGRITY": {
+   "corrections_quality": 255,
+   "gnss_signal_quality": 255,
+   "post_processing_quality": 255,
+   "raim_hfom": 65535,
+   "raim_vfom": 65535,
+   "system_status_summary": 255
+  },
+  "GPS2_RAW": {
+   "cog": 65535,
+   "eph": 65535,
+   "epv": 65535,
+   "satellites_visible": 255,
+   "vel": 65535,
+   "yaw": 0
+  },
+  "GPS_INPUT": {
+   "hdop": 65535,
+   "vdop": 65535,
+   "yaw": 0
+  },
+  "GPS_RAW_INT": {
+   "cog": 65535,
+   "eph": 65535,
+   "epv": 65535,
+   "satellites_visible": 255,
+   "vel": 65535,
+   "yaw": 0
+  },
+  "HIGH_LATENCY": {
+   "gps_nsat": 255
+  },
+  "HIGH_LATENCY2": {
+   "battery": -1
+  },
+  "HIL_GPS": {
+   "cog": 65535,
+   "eph": 65535,
+   "epv": 65535,
+   "satellites_visible": 255,
+   "vel": 65535
+  },
+  "HIL_OPTICAL_FLOW": {
+   "distance": -1.0
+  },
+  "HIL_RC_INPUTS_RAW": {
+   "rssi": 255
+  },
+  "LOGGING_DATA": {
+   "first_message_offset": 255
+  },
+  "LOGGING_DATA_ACKED": {
+   "first_message_offset": 255
+  },
+  "LOG_ENTRY": {
+   "time_utc": 0
+  },
+  "MANUAL_CONTROL": {
+   "r": 32767,
+   "x": 32767,
+   "y": 32767,
+   "z": 32767
+  },
+  "MEMORY_VECT": {
+   "ver": 0
+  },
+  "MISSION_ACK": {
+   "opaque_id": 0
+  },
+  "MISSION_COUNT": {
+   "opaque_id": 0
+  },
+  "MISSION_CURRENT": {
+   "fence_id": 0,
+   "mission_id": 0,
+   "mission_mode": 0,
+   "mission_state": 0,
+   "rally_points_id": 0,
+   "total": 65535
+  },
+  "MLRS_RADIO_LINK_FLOW_CONTROL": {
+   "rx_ser_rate": 65535,
+   "rx_used_ser_bandwidth": 255,
+   "tx_ser_rate": 65535,
+   "tx_used_ser_bandwidth": 255,
+   "txbuf": 255
+  },
+  "MLRS_RADIO_LINK_INFORMATION": {
+   "mode": 255,
+   "rx_frame_rate": 0,
+   "rx_power": 127,
+   "rx_receive_sensitivity": 0,
+   "rx_ser_data_rate": 0,
+   "tx_frame_rate": 0,
+   "tx_power": 127,
+   "tx_receive_sensitivity": 0,
+   "tx_ser_data_rate": 0,
+   "type": 0
+  },
+  "MLRS_RADIO_LINK_STATS": {
+   "frequency1": 0,
+   "frequency2": 0,
+   "rx_LQ_rc": 255,
+   "rx_LQ_ser": 255,
+   "rx_rssi1": 255,
+   "rx_rssi2": 255,
+   "rx_snr1": 127,
+   "rx_snr2": 127,
+   "tx_LQ_ser": 255,
+   "tx_rssi1": 255,
+   "tx_rssi2": 255,
+   "tx_snr1": 127,
+   "tx_snr2": 127
+  },
+  "MOUNT_ORIENTATION": {
+   "pitch": "NaN",
+   "roll": "NaN",
+   "yaw": "NaN",
+   "yaw_absolute": "NaN"
+  },
+  "ODOMETRY": {
+   "quality": 0
+  },
+  "ONBOARD_COMPUTER_STATUS": {
+   "ram_total": 4294967295,
+   "ram_usage": 4294967295,
+   "temperature_board": 127
+  },
+  "OPEN_DRONE_ID_LOCATION": {
+   "altitude_barometric": -1000,
+   "altitude_geodetic": -1000,
+   "direction": 36100,
+   "height": -1000,
+   "latitude": 0,
+   "longitude": 0,
+   "timestamp": 65535
+  },
+  "OPEN_DRONE_ID_SYSTEM": {
+   "area_ceiling": -1000,
+   "area_floor": -1000,
+   "operator_altitude_geo": -1000,
+   "operator_latitude": 0,
+   "operator_longitude": 0
+  },
+  "OPEN_DRONE_ID_SYSTEM_UPDATE": {
+   "operator_altitude_geo": -1000,
+   "operator_latitude": 0,
+   "operator_longitude": 0
+  },
+  "PARAM_EXT_REQUEST_READ": {
+   "param_index": -1
+  },
+  "PARAM_REQUEST_READ": {
+   "param_index": -1
+  },
+  "RADIO_STATUS": {
+   "noise": 255,
+   "remnoise": 255,
+   "remrssi": 255,
+   "rssi": 255
+  },
+  "RANGING_BEACON": {
+   "alt": "NaN",
+   "carrier_freq": 0,
+   "hacc_est": 4294967295,
+   "lat": 2147483647,
+   "lon": 2147483647,
+   "range": 4294967295,
+   "range_accuracy": 4294967295,
+   "vacc_est": 4294967295
+  },
+  "RAW_PRESSURE": {
+   "press_diff1": 0,
+   "press_diff2": 0
+  },
+  "RC_CHANNELS": {
+   "chan10_raw": 65535,
+   "chan11_raw": 65535,
+   "chan12_raw": 65535,
+   "chan13_raw": 65535,
+   "chan14_raw": 65535,
+   "chan15_raw": 65535,
+   "chan16_raw": 65535,
+   "chan17_raw": 65535,
+   "chan18_raw": 65535,
+   "chan1_raw": 65535,
+   "chan2_raw": 65535,
+   "chan3_raw": 65535,
+   "chan4_raw": 65535,
+   "chan5_raw": 65535,
+   "chan6_raw": 65535,
+   "chan7_raw": 65535,
+   "chan8_raw": 65535,
+   "chan9_raw": 65535,
+   "rssi": 255
+  },
+  "RC_CHANNELS_OVERRIDE": {
+   "chan10_raw": 0,
+   "chan11_raw": 0,
+   "chan12_raw": 0,
+   "chan13_raw": 0,
+   "chan14_raw": 0,
+   "chan15_raw": 0,
+   "chan16_raw": 0,
+   "chan17_raw": 0,
+   "chan18_raw": 0,
+   "chan1_raw": 65535,
+   "chan2_raw": 65535,
+   "chan3_raw": 65535,
+   "chan4_raw": 65535,
+   "chan5_raw": 65535,
+   "chan6_raw": 65535,
+   "chan7_raw": 65535,
+   "chan8_raw": 65535,
+   "chan9_raw": 0
+  },
+  "RC_CHANNELS_RAW": {
+   "chan1_raw": 65535,
+   "chan2_raw": 65535,
+   "chan3_raw": 65535,
+   "chan4_raw": 65535,
+   "chan5_raw": 65535,
+   "chan6_raw": 65535,
+   "chan7_raw": 65535,
+   "chan8_raw": 65535,
+   "rssi": 255
+  },
+  "RC_CHANNELS_SCALED": {
+   "chan1_scaled": 32767,
+   "chan2_scaled": 32767,
+   "chan3_scaled": 32767,
+   "chan4_scaled": 32767,
+   "chan5_scaled": 32767,
+   "chan6_scaled": 32767,
+   "chan7_scaled": 32767,
+   "chan8_scaled": 32767,
+   "rssi": 255
+  },
+  "SCALED_IMU2": {
+   "temperature": 0
+  },
+  "SCALED_IMU3": {
+   "temperature": 0
+  },
+  "SCALED_PRESSURE": {
+   "temperature_press_diff": 0
+  },
+  "SCALED_PRESSURE2": {
+   "temperature_press_diff": 0
+  },
+  "SCALED_PRESSURE3": {
+   "temperature_press_diff": 0
+  },
+  "SIM_STATE": {
+   "lat_int": 0,
+   "lon_int": 0
+  },
+  "SMART_BATTERY_INFO": {
+   "capacity_full": -1,
+   "capacity_full_specification": -1,
+   "cells_in_series": 0,
+   "charging_maximum_voltage": 0,
+   "charging_minimum_voltage": 65535,
+   "cycle_count": 65535,
+   "discharge_maximum_burst_current": 0,
+   "discharge_maximum_current": 0,
+   "discharge_minimum_voltage": 65535,
+   "resting_minimum_voltage": 65535,
+   "weight": 0
+  },
+  "STORM32_GIMBAL_MANAGER_CONTROL": {
+   "angular_velocity_x": "NaN",
+   "angular_velocity_y": "NaN",
+   "angular_velocity_z": "NaN",
+   "device_flags": 65535,
+   "manager_flags": 0
+  },
+  "STORM32_GIMBAL_MANAGER_CONTROL_PITCHYAW": {
+   "device_flags": 65535,
+   "manager_flags": 0,
+   "pitch": "NaN",
+   "pitch_rate": "NaN",
+   "yaw": "NaN",
+   "yaw_rate": "NaN"
+  },
+  "STORM32_GIMBAL_MANAGER_INFORMATION": {
+   "pitch_max": "NaN",
+   "pitch_min": "NaN",
+   "roll_max": "NaN",
+   "roll_min": "NaN",
+   "yaw_max": "NaN",
+   "yaw_min": "NaN"
+  },
+  "SYS_STATUS": {
+   "battery_remaining": -1,
+   "current_battery": -1,
+   "voltage_battery": 65535
+  },
+  "TIME_ESTIMATE_TO_TARGET": {
+   "commanded_action": -1,
+   "mission_end": -1,
+   "mission_next_item": -1
+  },
+  "UAVCAN_NODE_INFO": {
+   "sw_vcs_commit": 0
+  },
+  "UTM_GLOBAL_POSITION": {
+   "update_rate": 0
+  },
+  "WINCH_STATUS": {
+   "current": "NaN",
+   "line_length": "NaN",
+   "speed": "NaN",
+   "temperature": 32767,
+   "tension": "NaN",
+   "voltage": "NaN"
+  },
+  "WIND_COV": {
+   "horiz_accuracy": 0,
+   "var_horiz": "NaN",
+   "var_vert": "NaN",
+   "vert_accuracy": 0,
+   "wind_alt": "NaN",
+   "wind_x": "NaN",
+   "wind_y": "NaN",
+   "wind_z": "NaN"
+  }
+ }
+}
