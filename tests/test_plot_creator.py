@@ -13,7 +13,10 @@ from unittest.mock import patch
 import pytest
 
 from mavpose.file_validator import FileValidationError
-from mavpose.PlotCreator import PlotCreator
+
+pytest.importorskip("langchain_openai", reason="needs the [chat] extra")
+
+from mavpose.chat.plot_creator import PlotCreator  # noqa: E402
 
 
 @pytest.fixture

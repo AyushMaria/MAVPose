@@ -5,7 +5,11 @@ Unit tests for PlotCreator.extract_code_snippets().
 This is a pure static method with no LLM or file I/O — safe to test without mocking.
 """
 
-from mavpose.PlotCreator import PlotCreator
+import pytest
+
+pytest.importorskip("langchain_openai", reason="needs the [chat] extra")
+
+from mavpose.chat.plot_creator import PlotCreator  # noqa: E402
 
 
 class TestExtractCodeSnippets:

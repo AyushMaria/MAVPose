@@ -18,7 +18,7 @@
 MAVPose is a headless CLI tool that turns a natural language prompt into a matplotlib plot of your MAVLink flight log. It runs a **two-phase pipeline**: the parent process first extracts clean, time-aligned telemetry into a Parquet file (like a headless database query), then hands the LLM a precise column schema and a `pd.read_parquet()` call — no raw binary data, no pymavlink in the generated script. This drastically reduces hallucinations and self-healing loops.
 
 ```
-$ python cli.py flight.tlog --prompt "Plot altitude over time"
+$ mavpose flight.tlog --prompt "Plot altitude over time"
 
 📂 Parsing log schema: flight.tlog
 ✅ Schema indexed.
@@ -130,26 +130,30 @@ $ python cli.py flight.tlog --prompt "Plot altitude over time"
 ## Prerequisites
 
 - **Python 3.10+**
-- An **OpenRouter API key** — [get one here](https://openrouter.ai/keys) (free tier available)
+- For the chat assistant only: an **OpenRouter API key** — [get one here](https://openrouter.ai/keys) (free tier available)
 
 ---
 
 ## Installation
 
+MAVPose has two layers. Install only what you need:
+
+| You want… | Install | Footprint |
+|---|---|---|
+| Clean, unit-correct telemetry in pandas / Parquet (no AI) | `pip install mavpose` | 9 packages |
+| …plus the plain-English plot assistant (`mavpose` command) | `pip install "mavpose[chat]"` | ~113 packages |
+
+The core never imports the chat layer, so `pip install mavpose` has no LLM, vector-store or plotting dependencies.
+
+To work on MAVPose itself:
+
 ```bash
-# 1. Clone
 git clone https://github.com/AyushMaria/MAVPose.git
 cd MAVPose
-
-# 2. Create and activate a virtual environment
 python -m venv venv
 source venv/bin/activate      # Windows: venv\Scripts\activate
-
-# 3. Install dependencies
-pip install -r requirements.txt
-
-# 4. Configure
-cp template.env .env
+pip install -e ".[dev]"       # core + chat + test tools
+cp template.env .env          # chat assistant only
 ```
 
 Open `.env` and fill in your key:
@@ -165,10 +169,12 @@ OPENROUTER_MODEL=z-ai/glm-5.1   # default — change to any OpenRouter model
 
 ## Usage
 
+The `mavpose` command is the chat assistant and needs `pip install "mavpose[chat]"`; without it, the command explains what to install.
+
 ### Single prompt
 
 ```bash
-python cli.py flight.tlog --prompt "Plot altitude over time"
+mavpose flight.tlog --prompt "Plot altitude over time"
 ```
 
 ### Interactive REPL
@@ -176,7 +182,7 @@ python cli.py flight.tlog --prompt "Plot altitude over time"
 Omit `--prompt` to enter a live loop:
 
 ```bash
-python cli.py flight.tlog
+mavpose flight.tlog
 
 📊 Plot request > Plot battery voltage and current
 📊 Plot request > Show GPS latitude and longitude
@@ -236,24 +242,24 @@ OPENROUTER_MODEL=openai/gpt-4o
 
 ```
 MAVPose/
-├── cli.py                         # CLI entry point — two-phase orchestration
-├── app.py                         # Legacy stub (Gradio UI removed)
-├── llm/
-│   ├── log_extractor.py           # 🆕 Headless extraction layer (LogExtractor)
-│   ├── gptPlotCreator.py          # PlotCreator — orchestrates both phases
-│   ├── safe_executor.py           # Restricted subprocess executor (audit hook + limits)
-│   └── file_validator.py          # File validation (extension, size, symlink)
+├── mavpose/                       # pip install mavpose — core data layer
+│   ├── log_extractor.py           # LogExtractor: one clock, real units, unknown markers
+│   ├── file_validator.py          # File validation (extension, size, symlink)
+│   ├── data/
+│   │   └── mavlink_unknown_markers.json   # generated from the MAVLink spec
+│   └── chat/                      # pip install "mavpose[chat]" — plot assistant
+│       ├── plot_creator.py        # PlotCreator: LLM writes the plot script
+│       ├── safe_executor.py       # Restricted subprocess executor (audit hook + limits)
+│       └── cli.py                 # `mavpose` command
+├── tools/
+│   └── gen_unknown_markers.py     # regenerates mavpose/data from mavlink/mavlink
 ├── tests/
-│   ├── test_log_extractor.py      # 🆕 Unit tests for LogExtractor
-│   ├── test_extract_code_snippets.py
-│   ├── test_file_validator.py
-│   └── test_safe_executor.py
-├── .github/workflows/ci.yml       # GitHub Actions: ruff lint + pytest
-├── docs/
-│   └── GPT_MAVPlot_Arch.png
-├── target/                        # Output directory for plot.py and plot.png
+│   ├── log_builders.py            # builds real .tlog / .bin files for tests
+│   ├── test_real_logs.py          # end-to-end extraction tests
+│   ├── test_core_boundary.py      # core must not depend on chat
+│   └── …
+├── .github/workflows/ci.yml       # ruff + pytest on 3.10–3.13, plus a core-only job
 ├── template.env
-├── requirements.txt
 └── LICENSE
 ```
 
@@ -262,7 +268,7 @@ MAVPose/
 ## Core API — `LogExtractor`
 
 ```python
-from llm.log_extractor import LogExtractor
+from mavpose import LogExtractor
 
 extractor = LogExtractor("flight.tlog")
 
@@ -308,14 +314,16 @@ result, code = creator.run_script()
 ## Running Tests
 
 ```bash
-pip install pytest pytest-cov ruff
-pytest tests/ -v --cov=llm
+pip install -e ".[dev]"
+pytest tests/ -v --cov=mavpose
 ```
 
 To lint:
 ```bash
-ruff check llm/ cli.py
+ruff check mavpose tests tools
 ```
+
+In a core-only install (`pip install -e .`), the chat tests skip themselves.
 
 ---
 
@@ -324,12 +332,13 @@ ruff check llm/ cli.py
 | Issue | Cause | Fix |
 |---|---|---|
 | `KeyError: OPENROUTER_API_KEY` | `.env` not configured | Copy `template.env` to `.env` and add your key |
-| `ModuleNotFoundError: pandas` | Missing dependency | Run `pip install -r requirements.txt` |
-| `ModuleNotFoundError: pyarrow` | Missing dependency | Run `pip install -r requirements.txt` |
+| `ModuleNotFoundError: pandas` | Missing dependency | Run `pip install mavpose` |
+| `ModuleNotFoundError: pyarrow` | Missing dependency | Run `pip install mavpose` |
+| "The MAVPose chat assistant needs extra packages" | Core-only install | Run `pip install "mavpose[chat]"` |
 | Plot not generated after N retries | LLM script failed repeatedly | Try a more specific prompt; use `--verbose` to inspect errors |
 | `FileValidationError` | Wrong file type or empty file | Only `.tlog`, `.bin`, `.log` files ≤ 200 MB are accepted |
 | `ValueError: None of the requested message types were found` | Semantic search returned types not in log | Use `--verbose` to see what types the log actually contains |
-| ChromaDB version conflict | Stale venv | Delete `venv/` and reinstall with a fresh `pip install -r requirements.txt` |
+| ChromaDB version conflict | Stale venv | Delete `venv/` and reinstall with `pip install "mavpose[chat]"` |
 
 ---
 

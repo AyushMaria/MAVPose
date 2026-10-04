@@ -1,12 +1,15 @@
 """
 tests/test_safe_executor.py
 
-Unit tests for mavpose/safe_executor.py.
+Unit tests for mavpose/chat/safe_executor.py (stdlib + pandas only, so
+these also run in a core-only install).
 Verifies that the subprocess sandbox correctly allows safe code
 and blocks dangerous imports and operations.
 """
 
-from mavpose.safe_executor import execute_script
+import pytest
+
+from mavpose.chat.safe_executor import execute_script
 
 
 class TestExecuteScript:
@@ -131,6 +134,7 @@ class TestSandboxHardening:
         assert 'plot_script.py", line 3' in output
 
     def test_matplotlib_plot_still_works(self, tmp_path):
+        pytest.importorskip("matplotlib", reason="needs the [chat] extra")
         png = tmp_path / "plot.png"
         code = (
             "import pandas as pd\n"
