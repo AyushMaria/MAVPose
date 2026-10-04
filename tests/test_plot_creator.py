@@ -100,3 +100,25 @@ class TestRunScript:
             _, code = creator.run_script()
         assert fix.call_count == creator.max_retries - 1
         assert "fix attempts failed" in code
+
+
+class TestFixPromptSchema:
+
+    def test_fix_prompt_schema_includes_units(self, creator, tmp_path):
+        from unittest.mock import MagicMock
+
+        from tests.log_builders import build_tlog
+
+        log = build_tlog(tmp_path / "flight.tlog")
+        creator.set_logfile_name(str(log))
+        creator.extract_dataframes(["GLOBAL_POSITION_INT"])
+        with open(creator.script_path, "w", encoding="utf-8") as fh:
+            fh.write("raise ValueError('boom')\n")
+
+        creator._fix_chain = MagicMock()
+        creator._fix_chain.invoke.return_value = "```python\npass\n```"
+        creator.attempt_to_fix_script("ValueError: boom")
+
+        schema = creator._fix_chain.invoke.call_args[0][0]["schema"]
+        assert '"unit": "m"' in schema
+        assert '"GLOBAL_POSITION_INT"' in schema
