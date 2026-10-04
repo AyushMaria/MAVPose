@@ -5,14 +5,19 @@ build-backend = "hatchling.build"
 [project]
 name = "mavpose"
 version = "0.1.0"
-description = "LLM-powered MAVLink flight log analysis and plotting"
+description = "Clean, unit-correct telemetry from drone flight logs (MAVLink .tlog, ArduPilot .bin), with an optional plain-English plot assistant"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.10"
+# Core data layer only. The chat assistant is the optional [chat] extra.
 dependencies = [
     "pymavlink>=2.4.37",
     "pandas>=2.0.0",
     "pyarrow>=14.0.0",
+]
+
+[project.optional-dependencies]
+chat = [
     "matplotlib>=3.8",
     "openai>=1.0.0",
     "langchain-openai>=0.1.0",
@@ -22,12 +27,10 @@ dependencies = [
     "tiktoken>=0.5.0",
     "python-dotenv>=1.0.0",
 ]
+dev = ["mavpose[chat]", "pytest>=7", "pytest-cov", "ruff"]
 
 [project.scripts]
-mavpose = "mavpose.cli:main"
+mavpose = "mavpose.chat.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["mavpose"]
-
-[project.optional-dependencies]
-dev = ["pytest>=7", "pytest-cov", "ruff"]

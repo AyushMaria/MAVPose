@@ -40,3 +40,36 @@ jobs:
           OPENROUTER_MODEL: z-ai/glm-5.1
         run: |
           pytest tests/ -v --cov=mavpose --cov-report=term-missing
+
+  core-only:
+    name: Core without chat extras (Python 3.12)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install core only (no [chat] extra)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pytest
+
+      - name: Chat dependencies must be absent
+        run: |
+          python - <<'PY'
+          import importlib.util, sys
+          present = [m for m in ("langchain_openai", "langchain_core", "chromadb",
+                                 "openai", "matplotlib", "dotenv")
+                     if importlib.util.find_spec(m)]
+          sys.exit(f"chat deps installed with core: {present}" if present else 0)
+          PY
+
+      - name: Run tests (chat tests skip themselves)
+        run: pytest tests/ -v -rs
+
