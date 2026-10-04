@@ -97,6 +97,7 @@ $ python cli.py flight.tlog --prompt "Plot altitude over time"
 - **Headless extraction layer** — `LogExtractor` parses MAVLink `.tlog` and ArduPilot DataFlash `.bin`/`.log` files into per-message-type DataFrames before the LLM is ever invoked:
   - **one clock** — every message type shares a single `time_s` axis (tlog receive time, or DataFlash `TimeUS`); native time fields are kept as columns
   - **real units** — scaled fields are converted using the log's own unit metadata (`alt` mm → m, `lat` degE7 → deg, `voltage_battery` mV → V, …) and every column's unit is reported; pass `convert_units=False` for raw values
+  - **unknown values removed** — MAVLink "not provided" markers (`current_battery = -1`, `eph = UINT16_MAX`, …) become NaN instead of fake readings, using the `invalid` markers from the official MAVLink definitions; counts appear in `extractor.unknown_counts` and the LLM schema. Pass `filter_unknown=False` to keep them
   - **corruption-tolerant** — bad packets are skipped and counted (`extractor.stats`) instead of silently ending the parse
 - **Clean Parquet handoff** — only the relevant message types are exported; the LLM sees exact column names, dtypes, min/max ranges — no binary guesswork
 - **Semantic field search** — ChromaDB vector embeddings surface the most relevant message types for your query
@@ -273,7 +274,8 @@ schema = extractor.schema_only()
 frames = extractor.extract_all()
 # {"GLOBAL_POSITION_INT": pd.DataFrame([time_s, msg_type, lat, lon, alt, ...]), ...}
 extractor.units["GLOBAL_POSITION_INT"]["alt"]   # "m"
-extractor.stats                                   # {"messages": ..., "bad_data": 0, "errors": 0}
+extractor.stats                                   # {"messages": ..., "bad_data": 0, "errors": 0, "unknown_values": 0}
+extractor.unknown_counts                          # {"SYS_STATUS": {"current_battery": 3}, ...}
 
 # Export to Parquet and get schema summary for the LLM
 summary = extractor.export_parquet(["GLOBAL_POSITION_INT", "VFR_HUD"], "telemetry.parquet")
