@@ -9,7 +9,10 @@ Build small but realistic flight logs for end-to-end tests:
   FMT, UNIT, MULT and FMTU records, as written by modern ArduPilot.
 
 Both describe the same 10-second flight so tests can check timing and
-units against known values.
+units against known values.  The .tlog also contains MAVLink "unknown"
+markers, as real autopilots send them: for the first ``UNKNOWN_SAMPLES``
+samples the current sensor and GPS fix are not ready, and GPS vertical
+accuracy (epv) is never provided.
 """
 
 from __future__ import annotations
@@ -25,6 +28,8 @@ RECEIVE_EPOCH_S = 1_700_000_000.0        # tlog receive-time base (Unix seconds)
 BOOT_OFFSET_S = 42.0                      # vehicle had been powered on 42 s
 GPS_WEEK = 2290
 GPS_MS_START = 345_600_000
+UNKNOWN_SAMPLES = 3                       # leading samples with "unknown" markers
+UINT16_MAX = 65535
 
 
 class _Buf:
@@ -83,16 +88,22 @@ def build_tlog(path: Path, junk_after_index: int | None = None) -> Path:
             int(round(s["vx_mps"] * 100)), 0, 0,
             int(round(s["hdg_deg"] * 100)),
         ), t)
+        warming_up = i < UNKNOWN_SAMPLES
         emit(mavlink.MAVLink_sys_status_message(
             0, 0, 0, 500,
-            int(round(s["volt_v"] * 1000)), int(round(s["curr_a"] * 100)), 80,
+            int(round(s["volt_v"] * 1000)),
+            -1 if warming_up else int(round(s["curr_a"] * 100)),   # -1 = unknown
+            -1 if warming_up else 80,                               # -1 = unknown
             0, 0, 0, 0, 0, 0,
         ), t)
         # GPS_RAW_INT.time_usec is boot-based here: a trap for naive timing
         emit(mavlink.MAVLink_gps_raw_int_message(
             int((BOOT_OFFSET_S + t) * 1e6), 3,
             int(round(s["lat_deg"] * 1e7)), int(round(s["lon_deg"] * 1e7)),
-            int(round(s["alt_m"] * 1000)), 100, 100, 150, 9000, 10,
+            int(round(s["alt_m"] * 1000)),
+            UINT16_MAX if warming_up else 100,   # eph: unknown until fix
+            UINT16_MAX,                          # epv: never provided
+            150, 9000, 10,
         ), t)
         if junk_after_index is not None and i == junk_after_index:
             out.extend(bytes(range(64)))

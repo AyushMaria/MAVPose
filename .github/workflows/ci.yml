@@ -32,7 +32,7 @@ jobs:
 
       - name: Lint with ruff
         run: |
-          ruff check mavpose tests --select E,F,W,B --ignore E501
+          ruff check mavpose tests tools --select E,F,W,B --ignore E501
 
       - name: Run tests
         env:

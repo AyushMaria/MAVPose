@@ -9,6 +9,7 @@ than on mocked messages.  These cover the P1 data-layer bugs:
   #7  .tlog mixed epoch / boot / sequence clocks in one time_s column
   #8  one bad packet truncated the rest of the log
   #11 raw scaled units (mm, degE7, mV, cA …) reached the LLM
+  #27 MAVLink "unknown" markers (-1, UINT16_MAX …) passed through as data
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ import pytest
 from tests.log_builders import (
     BOOT_OFFSET_S,
     DURATION_S,
+    UNKNOWN_SAMPLES,
     build_dataflash_bin,
     build_tlog,
 )
@@ -101,8 +103,8 @@ class TestUnits:
         assert gpi["lat"] == pytest.approx(-35.3632621)     # degE7 -> deg
         assert gpi["vx"] == pytest.approx(1.5)              # cm/s -> m/s
         assert gpi["hdg"] == pytest.approx(90.0)            # cdeg -> deg
-        sys_status = frames["SYS_STATUS"].iloc[0]
-        assert sys_status["voltage_battery"] == pytest.approx(12.6)   # mV -> V
+        sys_status = frames["SYS_STATUS"].iloc[-1]
+        assert sys_status["voltage_battery"] == pytest.approx(12.5)   # mV -> V
         assert sys_status["current_battery"] == pytest.approx(10.5)   # cA -> A
 
         u = ex.units["GLOBAL_POSITION_INT"]
@@ -172,3 +174,67 @@ class TestCorruptLogs:
         path.write_bytes(data[: len(data) // 2 + 7])   # cut mid-packet
         _, frames = _extract(path)
         assert len(frames["GLOBAL_POSITION_INT"]) > 10
+
+
+# ---------------------------------------------------------------------------
+# Unknown markers (#27)
+# ---------------------------------------------------------------------------
+
+class TestUnknownMarkers:
+
+    def test_unknown_current_becomes_nan_not_negative_amps(self, tlog):
+        _, frames = _extract(tlog)
+        cur = frames["SYS_STATUS"]["current_battery"]
+        assert cur.iloc[:UNKNOWN_SAMPLES].isna().all()          # was -0.01 A
+        assert cur.iloc[UNKNOWN_SAMPLES:].tolist() == pytest.approx(
+            [10.5] * (len(cur) - UNKNOWN_SAMPLES))
+        assert cur.min() == pytest.approx(10.5)                  # no fake dip
+        rem = frames["SYS_STATUS"]["battery_remaining"]
+        assert rem.iloc[:UNKNOWN_SAMPLES].isna().all()
+        assert rem.dropna().min() == 80
+
+    def test_gps_accuracy_markers(self, tlog):
+        _, frames = _extract(tlog)
+        gps = frames["GPS_RAW_INT"]
+        assert gps["epv"].isna().all()                           # never provided
+        assert gps["eph"].iloc[:UNKNOWN_SAMPLES].isna().all()
+        assert gps["eph"].iloc[UNKNOWN_SAMPLES:].eq(100).all()
+
+    def test_real_values_untouched(self, tlog):
+        _, frames = _extract(tlog)
+        gps = frames["GPS_RAW_INT"]
+        assert gps["cog"].eq(90.0).all()                         # 9000 cdeg is real
+        assert frames["SYS_STATUS"]["voltage_battery"].notna().all()
+        assert frames["GLOBAL_POSITION_INT"].notna().all().all()
+
+    def test_counts_reported(self, tlog, tmp_path):
+        ex, frames = _extract(tlog)
+        n = len(frames["GPS_RAW_INT"])
+        assert ex.unknown_counts["SYS_STATUS"] == {
+            "current_battery": UNKNOWN_SAMPLES, "battery_remaining": UNKNOWN_SAMPLES}
+        # yaw is 0 throughout: MAVLink's "this GPS does not provide yaw"
+        assert ex.unknown_counts["GPS_RAW_INT"] == {
+            "eph": UNKNOWN_SAMPLES, "epv": n, "yaw": n}
+        assert ex.stats["unknown_values"] == 3 * UNKNOWN_SAMPLES + 2 * n
+        summary = ex.export_parquet(["SYS_STATUS"], str(tmp_path / "s.parquet"))
+        assert summary["SYS_STATUS"]["columns"]["current_battery"]["unknown"] == UNKNOWN_SAMPLES
+        assert summary["SYS_STATUS"]["columns"]["current_battery"]["min"] == pytest.approx(10.5)
+        assert "unknown" not in summary["SYS_STATUS"]["columns"]["voltage_battery"]
+
+    def test_all_unknown_column_is_float_nan(self, tlog, tmp_path):
+        ex, frames = _extract(tlog)
+        assert frames["GPS_RAW_INT"]["epv"].dtype == "float64"
+        cols = ex.summary(["GPS_RAW_INT"])["GPS_RAW_INT"]["columns"]
+        assert "min" not in cols["epv"]
+        assert cols["epv"]["unknown"] == len(frames["GPS_RAW_INT"])
+
+    def test_filtering_can_be_disabled(self, tlog):
+        ex, frames = _extract(tlog, filter_unknown=False)
+        assert frames["SYS_STATUS"]["current_battery"].iloc[0] == pytest.approx(-0.01)
+        assert frames["GPS_RAW_INT"]["epv"].iloc[0] == 65535   # unitless, unscaled
+        assert ex.unknown_counts == {}
+        assert ex.stats["unknown_values"] == 0
+
+    def test_dataflash_not_filtered(self, dataflash):
+        ex, _ = _extract(dataflash)
+        assert ex.unknown_counts == {}
