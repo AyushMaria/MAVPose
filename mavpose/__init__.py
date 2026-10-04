@@ -1,26 +1,44 @@
 """
 MAVPose — clean, unit-correct telemetry from drone flight logs.
 
-Core (``pip install mavpose``): parse MAVLink .tlog and ArduPilot DataFlash
-.bin/.log files into time-aligned DataFrames with real units.
+    import mavpose
 
-    from mavpose import LogExtractor
-    frames = LogExtractor("flight.tlog").extract_all()
+    log = mavpose.load("flight.tlog")      # MAVLink .tlog, ArduPilot .bin/.log, PX4 .ulg
+    log.messages()
+    alt = log.series("GLOBAL_POSITION_INT", "alt")   # pandas Series indexed by time_s
+    alt.attrs["unit"]                               # "m"
 
-Chat assistant (``pip install 'mavpose[chat]'``): plain-English plots,
-available as ``mavpose.chat.PlotCreator`` and the ``mavpose`` command.
+Public API (see docs/api-stability.md): ``load``, ``FlightLog``,
+``LogExtractor``, ``validate_mavlink_file``, ``FileValidationError`` and
+``__version__``.  The plain-English plot assistant lives in ``mavpose.chat``
+and needs ``pip install 'mavpose[chat]'``.
 """
 
+from importlib.metadata import PackageNotFoundError, version as _version
+
 from mavpose.file_validator import FileValidationError, validate_mavlink_file
+from mavpose.flightlog import FlightLog, load
 from mavpose.log_extractor import LogExtractor
 
-__all__ = ["LogExtractor", "validate_mavlink_file", "FileValidationError", "PlotCreator"]
-__version__ = "0.1.0"
+try:
+    __version__ = _version("mavpose")
+except PackageNotFoundError:  # running from a source tree without installing
+    __version__ = "0.0.0+unknown"
+
+__all__ = [
+    "load",
+    "FlightLog",
+    "LogExtractor",
+    "validate_mavlink_file",
+    "FileValidationError",
+    "__version__",
+]
 
 
 def __getattr__(name):
-    # Kept for backwards compatibility: `from mavpose import PlotCreator`.
-    # Imported lazily so the core never loads the chat dependencies.
+    # Backwards compatibility: `from mavpose import PlotCreator` (deprecated
+    # location, still supported).  Imported lazily so the core never loads the
+    # chat dependencies.
     if name == "PlotCreator":
         from mavpose.chat.plot_creator import PlotCreator
         return PlotCreator
