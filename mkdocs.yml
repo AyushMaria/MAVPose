@@ -1,5 +1,5 @@
 site_name: MAVPose
-site_description: LLM-powered MAVLink flight log analysis
+site_description: Clean, unit-correct telemetry from ArduPilot and PX4 flight logs
 site_url: https://ayushmaria.github.io/MAVPose/
 repo_url: https://github.com/AyushMaria/MAVPose
 repo_name: AyushMaria/MAVPose
@@ -16,24 +16,40 @@ theme:
         icon: material/brightness-4
         name: Switch to light mode
   features:
-    - navigation.tabs
-    - navigation.instant
+    - navigation.sections
     - content.code.copy
+
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.superfences
+  - pymdownx.details
 
 plugins:
   - search
   - mkdocstrings:
       handlers:
         python:
-          paths: [.]          # ← tells it where to find the mavpose/ package
+          paths: [.]
           options:
-            show_source: true
-            docstring_style: numpy   # change to "google" if your docstrings use that style
+            docstring_style: numpy
+            show_source: false
+            show_root_heading: true
+            members_order: source
+            filters: ["!^_"]
 
 nav:
   - Home: index.md
-  - API Reference:
+  - Guide:
+    - Concepts: guide/concepts.md
+    - Log formats: guide/formats.md
+    - Plot assistant: guide/chat.md
+  - API reference:
+    - load and FlightLog: api/flightlog.md
     - LogExtractor: api/log_extractor.md
-    - PlotCreator: api/plot_creator.md
-    - FileValidator: api/file_validator.md
-    - SafeExecutor: api/safe_executor.md
+    - File validation: api/file_validator.md
+    - Plot assistant: api/chat.md
+    - API stability: api-stability.md
+  - Changelog: changelog.md

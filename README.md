@@ -244,6 +244,7 @@ OPENROUTER_MODEL=openai/gpt-4o
 ```
 MAVPose/
 ├── mavpose/                       # pip install mavpose — core data layer
+│   ├── flightlog.py               # mavpose.load() and FlightLog: the public API
 │   ├── log_extractor.py           # LogExtractor: one clock, real units, unknown markers
 │   ├── ulog_reader.py             # PX4 ULog (.ulg) support via pyulog
 │   ├── file_validator.py          # File validation (extension, size, symlink)
@@ -254,6 +255,8 @@ MAVPose/
 │       ├── plot_creator.py        # PlotCreator: LLM writes the plot script
 │       ├── safe_executor.py       # Restricted subprocess executor (audit hook + limits)
 │       └── cli.py                 # `mavpose` command
+├── docs/                          # guide, format notes, API reference (MkDocs)
+├── CHANGELOG.md
 ├── tools/
 │   ├── gen_unknown_markers.py     # regenerates MAVLink markers from mavlink/mavlink
 │   └── gen_px4_field_info.py      # regenerates PX4 units/markers from PX4-Autopilot/msg
@@ -262,40 +265,43 @@ MAVPose/
 │   ├── test_real_logs.py          # end-to-end extraction tests
 │   ├── test_core_boundary.py      # core must not depend on chat
 │   └── …
-├── .github/workflows/ci.yml       # ruff + pytest on 3.10–3.13, plus a core-only job
+├── .github/workflows/ci.yml       # ruff + pytest on 3.10–3.13, core-only job, strict docs build
 ├── template.env
 └── LICENSE
 ```
 
 ---
 
-## Core API — `LogExtractor`
+## Library API
 
 ```python
-from mavpose import LogExtractor
+import mavpose
 
-extractor = LogExtractor("flight.tlog")
+log = mavpose.load("flight.tlog")          # .tlog, .bin, .log or .ulg
+log
+# <FlightLog 'flight.tlog': mavlink, 38 message types, 2443.8 s>
 
-# Fast schema scan (no DataFrame allocation)
-schema = extractor.schema_only()
-# {"GLOBAL_POSITION_INT": {"count": 1842, "fields": {"lat": "int", ...}, "units": {"lat": "deg", ...}}, ...}
+alt = log.series("GLOBAL_POSITION_INT", "relative_alt")   # Series indexed by time_s
+alt.attrs["unit"]                                         # 'm'
 
-# Full extraction into DataFrames
-frames = extractor.extract_all()
-# {"GLOBAL_POSITION_INT": pd.DataFrame([time_s, msg_type, lat, lon, alt, ...]), ...}
-extractor.units["GLOBAL_POSITION_INT"]["alt"]   # "m"
-extractor.stats                                   # {"messages": ..., "bad_data": 0, "errors": 0, "unknown_values": 0}
-extractor.unknown_counts                          # {"SYS_STATUS": {"current_battery": 3}, ...}
-
-# Export to Parquet and get schema summary for the LLM
-summary = extractor.export_parquet(["GLOBAL_POSITION_INT", "VFR_HUD"], "telemetry.parquet")
-# {"GLOBAL_POSITION_INT": {"rows": 1842, "columns": {"alt": {"dtype": "float64", "unit": "m", "min": 487.32, "max": 512.1}, ...}}}
+log.unknown_counts        # {'GPS_RAW_INT': {'epv': 6338}}  "not provided" values now NaN
+log.to_parquet("telemetry.parquet")
 ```
 
-## Core API — `PlotCreator`
+`mavpose.load`, `FlightLog`, `LogExtractor`, `validate_mavlink_file` and
+`FileValidationError` are the public API, covered by the
+[stability policy](docs/api-stability.md). Full documentation:
+
+- [Concepts](docs/guide/concepts.md): time axis, units, unknown values, damaged logs
+- [Log formats](docs/guide/formats.md): message names and quirks per format
+- [API reference](docs/api/flightlog.md) and [changelog](CHANGELOG.md)
+
+To preview the docs locally: `pip install -e ".[docs]" && mkdocs serve`.
+
+## Plot assistant API — `PlotCreator`
 
 ```python
-from mavpose import PlotCreator
+from mavpose.chat import PlotCreator   # needs mavpose[chat]
 
 creator = PlotCreator(max_retries=3)
 creator.set_logfile_name("flight.tlog")

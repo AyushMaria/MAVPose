@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mavpose"
-version = "0.1.0"
+version = "0.2.0"
 description = "Clean, unit-correct telemetry from drone flight logs (MAVLink .tlog, ArduPilot .bin, PX4 .ulg), with an optional plain-English plot assistant"
 readme = "README.md"
 license = { text = "MIT" }
@@ -28,6 +28,7 @@ chat = [
     "tiktoken>=0.5.0",
     "python-dotenv>=1.0.0",
 ]
+docs = ["mkdocs>=1.6,<2", "mkdocs-material>=9", "mkdocstrings[python]>=0.25"]
 dev = ["mavpose[chat]", "pytest>=7", "pytest-cov", "ruff"]
 
 [project.scripts]
