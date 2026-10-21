@@ -5,6 +5,23 @@ All notable changes to MAVPose. The format follows
 uses [Semantic Versioning](https://semver.org/) as described in
 [API stability](docs/api-stability.md).
 
+## [0.4.0] — unreleased
+
+### Changed
+- `PlotCreator.run_script()` returns a `RunResult` (`success`, `plot_path`,
+  `code`, `error`, `attempts`) instead of the old
+  `([[(None, (plot_path,))]], code)` tuple. Unpacking it the old way still
+  works but warns, and will stop working in a later release. (#14)
+
+### Fixed
+- Code mode runs the right block from the model's reply: Python-labelled
+  blocks first (longest first), then unlabelled ones. A ```` ```bash ````
+  snippet is never run as the plot script. (#13)
+
+### Added
+- Pre-commit hooks (`pre-commit install`) that run the same lint checks as
+  CI. (#15)
+
 ## [0.3.0] — 2026-10-21
 
 ### Breaking

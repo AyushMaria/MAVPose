@@ -53,3 +53,31 @@ class TestExtractCodeSnippets:
         result = PlotCreator.extract_code_snippets(text)
         assert "import os" in result[0]
         assert "for i in range" in result[0]
+
+
+class TestChoosingTheBlockToRun:
+    """#13: the block that runs is the best Python block, never a shell snippet."""
+
+    def test_bash_block_before_python_is_skipped(self):
+        text = "First install:\n```bash\npip install pandas\n```\nThen:\n```python\nimport pandas\n```"
+        assert PlotCreator.extract_code_snippets(text)[0] == "import pandas\n"
+
+    def test_only_a_shell_block_is_never_returned_as_code(self):
+        text = "```bash\nrm -rf /tmp/x\n```"
+        assert PlotCreator.extract_code_snippets(text) == [text]
+
+    def test_longest_python_block_wins(self):
+        text = ("```python\nx = 1\n```\n"
+                "```python\nimport pandas as pd\ndf = pd.read_parquet('t.parquet')\n```")
+        assert PlotCreator.extract_code_snippets(text)[0].startswith("import pandas")
+
+    def test_python_tag_beats_a_longer_unlabelled_block(self):
+        text = "```\n" + "# notes\n" * 20 + "```\n```py\nprint(1)\n```"
+        assert PlotCreator.extract_code_snippets(text)[0] == "print(1)\n"
+
+    def test_unlabelled_block_used_when_no_python_tag(self):
+        text = "```json\n{}\n```\n```\nprint(2)\n```"
+        assert PlotCreator.extract_code_snippets(text) == ["print(2)\n"]
+
+    def test_tag_with_trailing_space_and_case(self):
+        assert PlotCreator.extract_code_snippets("```Python \nprint(3)\n```") == ["print(3)\n"]

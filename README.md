@@ -341,7 +341,8 @@ schema_summary = creator.extract_dataframes(msg_types)
 # Phase 2: the model designs the plot as a JSON spec; MAVPose draws it
 ok = creator.plot_from_spec("Plot altitude over time", schema_summary)
 # → plot.png, plot.json and telemetry.parquet saved next to the log file
-# (PlotCreator(mode="code") + create_plot() / run_script() for code mode)
+# Code mode: PlotCreator(mode="code"), then create_plot() and run_script(),
+# which returns a RunResult (success, plot_path, code, error, attempts)
 ```
 
 ---

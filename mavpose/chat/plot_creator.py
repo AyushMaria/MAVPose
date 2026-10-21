@@ -30,6 +30,8 @@ import json
 import logging
 import os
 import re
+import warnings
+from dataclasses import dataclass
 from typing import Dict, List, Optional
 
 from mavpose.chat._deps import require_chat_deps
@@ -54,9 +56,47 @@ from mavpose.log_extractor import LogExtractor  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["PlotCreator", "MissingAPIKeyError", "ModelConfigError", "VALID_EXTENSIONS"]
+__all__ = ["PlotCreator", "RunResult", "MissingAPIKeyError", "ModelConfigError", "VALID_EXTENSIONS"]
 
 MODES = ("spec", "code")
+
+_PYTHON_TAGS = {"python", "py", "python3"}
+
+
+@dataclass
+class RunResult:
+    """
+    Outcome of :meth:`PlotCreator.run_script`.
+
+    Attributes
+    ----------
+    success:
+        True if the script exited cleanly and saved a new plot.
+    plot_path:
+        The saved plot, or ``None`` if no plot was created.
+    code:
+        The last script that ran.
+    error:
+        The last error, or ``None`` on success.
+    attempts:
+        How many times the script ran.
+    """
+
+    success: bool
+    plot_path: Optional[str]
+    code: str
+    error: Optional[str]
+    attempts: int
+
+    def __iter__(self):
+        # MAVPose <= 0.3 returned ``([[(None, (plot_path,))]], code)``;
+        # keep ``result, code = creator.run_script()`` working for now.
+        warnings.warn(
+            "Unpacking run_script() is deprecated; use its RunResult attributes "
+            "(success, plot_path, code, error) instead.",
+            DeprecationWarning, stacklevel=2,
+        )
+        return iter(([[(None, (self.plot_path,))]], self.code))
 
 SPEC_FORMAT = """{
   "title": "optional figure title",
@@ -290,11 +330,20 @@ class PlotCreator:
     @staticmethod
     def extract_code_snippets(text: str) -> list:
         """
-        Extract fenced ```python``` blocks from *text*.
-        Falls back to returning [text] when no fences are found.
+        Extract the code blocks worth running from a model reply, best first.
+
+        Blocks fenced as ```` ```python ```` (or ``py``) come first, longest
+        first; then unlabelled blocks, longest first.  Blocks labelled with
+        another language (e.g. a ```` ```bash ```` install line) are never
+        returned.  With no usable fenced block, the whole text is returned.
         """
-        snippets = re.findall(r"```.*?\n(.*?)```", text, re.DOTALL | re.MULTILINE)
-        return snippets if snippets else [text]
+        blocks = re.findall(r"```([^\n`]*)\n(.*?)```", text, re.DOTALL)
+        tagged = [code for tag, code in blocks if tag.strip().lower() in _PYTHON_TAGS]
+        untagged = [code for tag, code in blocks if not tag.strip()]
+        # sorted() is stable: equally long blocks keep the reply's order
+        ranked = (sorted(tagged, key=len, reverse=True)
+                  + sorted(untagged, key=len, reverse=True))
+        return ranked if ranked else [text]
 
     @staticmethod
     def write_plot_script(filename: str, text: str) -> None:
@@ -556,7 +605,7 @@ class PlotCreator:
         self.write_plot_script(self.script_path, fixed)
         return fixed
 
-    def run_script(self) -> tuple:
+    def run_script(self) -> RunResult:
         """
         Execute the generated plot script in the restricted executor.
 
@@ -567,15 +616,18 @@ class PlotCreator:
 
         A run only counts as successful if the script exits cleanly **and**
         writes a new plot file: any ``plot.png`` left from an earlier run is
-        deleted first.  The outcome is stored in :attr:`last_success`.
+        deleted first.  The outcome is also stored in :attr:`last_success`.
 
         Returns
         -------
-        ([(None, (plot_path,))], last_code)
+        RunResult
         """
         output_dir = os.path.dirname(os.path.abspath(self.plot_path))
         self.last_success = False
+        last_error: Optional[str] = None
+        attempts = 0
         for attempt in range(1, self.max_retries + 1):
+            attempts = attempt
             with open(self.script_path, "r", encoding="utf-8") as fh:
                 code = fh.read()
 
@@ -598,7 +650,10 @@ class PlotCreator:
             if success:
                 logger.info("Script succeeded on attempt %d.", attempt)
                 self.last_success = True
+                self.last_code = code
+                last_error = None
                 break
+            last_error = output
 
             logger.warning(
                 "Script attempt %d/%d failed:\n%s",
@@ -614,4 +669,10 @@ class PlotCreator:
                     + self.last_code
                 )
 
-        return [[(None, (self.plot_path,))]], self.last_code
+        return RunResult(
+            success=self.last_success,
+            plot_path=self.plot_path if self.last_success else None,
+            code=self.last_code,
+            error=last_error,
+            attempts=attempts,
+        )
