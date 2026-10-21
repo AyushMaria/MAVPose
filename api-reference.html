@@ -979,7 +979,7 @@
       <div class="page-header-meta">
         <div class="meta-chip">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-          v0.3.0
+          v0.4.0
         </div>
         <div class="meta-chip">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -1593,6 +1593,9 @@ mavpose next_flight.bin <span class="tok-op">--</span>spec plot.json         <sp
           <tr><td><span class="cli-flag">--prompt</span></td><td><span class="cli-flag">-p</span></td><td><code>str</code></td><td><code>None</code></td><td>Plot request. Omit for interactive mode.</td></tr>
           <tr><td><span class="cli-flag">--model</span></td><td><span class="cli-flag">-m</span></td><td><code>str</code></td><td><code>None</code></td><td><code>provider:model</code>. Default: <code>MAVPOSE_MODEL</code>, or the provider whose key is set.</td></tr>
           <tr><td><span class="cli-flag">--spec</span></td><td>—</td><td><code>path</code></td><td><code>None</code></td><td>Redraw a saved <code>plot.json</code> on this log. No model or key needed.</td></tr>
+          <tr><td><span class="cli-flag">--out-dir</span></td><td><span class="cli-flag">-o</span></td><td><code>path</code></td><td>log's folder</td><td>Folder for the plot, its spec or script, and <code>telemetry.parquet</code>; created if needed.</td></tr>
+          <tr><td><span class="cli-flag">--format</span></td><td><span class="cli-flag">-f</span></td><td><code>str</code></td><td><code>png</code></td><td><code>png</code>, <code>svg</code> or <code>pdf</code>.</td></tr>
+          <tr><td><span class="cli-flag">--dpi</span></td><td>—</td><td><code>int</code></td><td><code>150</code></td><td>Resolution (400 by default with <code>--code</code>); ignored for SVG.</td></tr>
           <tr><td><span class="cli-flag">--code</span></td><td>—</td><td><code>flag</code></td><td><code>False</code></td><td>Have the model write a Python script instead of a plot spec.</td></tr>
           <tr><td><span class="cli-flag">--retries</span></td><td><span class="cli-flag">-r</span></td><td><code>int</code></td><td><code>3</code></td><td>Attempts per request when the spec or script fails.</td></tr>
           <tr><td><span class="cli-flag">--verbose</span></td><td><span class="cli-flag">-v</span></td><td><code>flag</code></td><td><code>False</code></td><td>Enable <code>DEBUG</code> logging.</td></tr>
@@ -1632,7 +1635,7 @@ mavpose next_flight.bin <span class="tok-op">--</span>spec plot.json         <sp
           </div>
       <div class="callout callout-info" style="margin-top: var(--space-6);">
         <span class="callout-icon">📋</span>
-        <p>The model sees the log's message types and the <a href="#fl-summary">summary()</a> schema, never the raw log, and replies with a plot spec: up to 6 panels sharing the time axis, <code>line</code> / <code>scatter</code> / <code>step</code>, a right-hand axis, colours, <code>x_field</code> for tracks, and a <code>start_s</code>/<code>end_s</code> window. MAVPose validates it against the log, sends errors back to the model, and draws it with units from the log. <code>mavpose.chat.render_spec(spec, frames, units, path)</code> draws specs from Python; <code>mavpose.chat.PlotCreator</code> is the class behind the command.</p>
+        <p>The model sees the log's message types and the <a href="#fl-summary">summary()</a> schema, never the raw log, and replies with a plot spec: up to 6 panels sharing the time axis, <code>line</code> / <code>scatter</code> / <code>step</code>, a right-hand axis, colours, <code>x_field</code> for tracks, and a <code>start_s</code>/<code>end_s</code> window. MAVPose validates it against the log, sends errors back to the model, and draws it with units from the log. <code>mavpose.chat.render_spec(spec, frames, units, path)</code> draws specs from Python; <code>mavpose.chat.PlotCreator</code> is the class behind the command; in code mode its <code>run_script()</code> returns a <code>RunResult</code> (<code>success</code>, <code>plot_path</code>, <code>code</code>, <code>error</code>, <code>attempts</code>). In interactive mode the model sees your last three requests.</p>
       </div>
       <div class="callout callout-warn" style="margin-top: var(--space-6);">
         <span class="callout-icon">🛡️</span>

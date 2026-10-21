@@ -397,7 +397,7 @@
     <div class="hero__inner">
       <div class="hero__badge">
         <span class="hero__badge-dot"></span>
-        v0.3 — any AI provider, and plots without generated code
+        v0.4 — half the memory on big logs, plus --out-dir, --format and --dpi
       </div>
 
       <h1 class="hero__title">
@@ -678,11 +678,14 @@
   <span class="t-dim">-p, --prompt TEXT</span>   Plot request (omit for interactive mode)
   <span class="t-dim">-m, --model P:M</span>     provider:model, e.g. anthropic:&lt;model&gt;, ollama:llama3.1:8b
   <span class="t-dim">--spec FILE</span>         Redraw a saved plot.json; no model needed
+  <span class="t-dim">-o, --out-dir DIR</span>    Save outputs to another folder
+  <span class="t-dim">-f, --format FMT</span>    png (default), svg or pdf
+  <span class="t-dim">--dpi N</span>             Resolution (default 150; 400 with --code)
   <span class="t-dim">--code</span>              Have the model write a Python script instead
   <span class="t-dim">-r, --retries N</span>     Attempts per request (default: 3)
   <span class="t-dim">-v, --verbose</span>       Enable debug logging
 
-<span class="code-comment"># Writes plot.png, plot.json and telemetry.parquet next to the log</span></pre>
+<span class="code-comment"># Writes plot.png, plot.json and telemetry.parquet next to the log (or in --out-dir)</span></pre>
         </div>
       </div>
     </div>
