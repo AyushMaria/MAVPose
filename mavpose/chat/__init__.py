@@ -9,13 +9,16 @@ mavpose.validate_mavlink_file); it is never imported by the core.
 
 from __future__ import annotations
 
-__all__ = ["PlotCreator", "execute_script"]
+__all__ = ["PlotCreator", "MissingAPIKeyError", "execute_script"]
 
 
 def __getattr__(name):
     if name == "PlotCreator":
         from mavpose.chat.plot_creator import PlotCreator
         return PlotCreator
+    if name == "MissingAPIKeyError":
+        from mavpose.chat.plot_creator import MissingAPIKeyError
+        return MissingAPIKeyError
     if name == "execute_script":
         from mavpose.chat.safe_executor import execute_script
         return execute_script

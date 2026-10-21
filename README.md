@@ -118,10 +118,10 @@ $ mavpose flight.tlog --prompt "Plot altitude over time"
 | LLM | [OpenRouter](https://openrouter.ai) → Z.ai GLM-5.1 (default) |
 | Embeddings | OpenRouter → `openai/text-embedding-3-small` |
 | LLM framework | LangChain (LCEL) — `langchain-openai`, `langchain-chroma` |
-| Vector store | ChromaDB ≥ 0.5 (persisted to disk) |
+| Vector store | ChromaDB ≥ 0.5 (in memory, one index per log) |
 | Extraction layer | pandas ≥ 2.0 + pyarrow ≥ 14.0 |
 | Drone log parsing | pymavlink ≥ 2.4.48 |
-| Plotting | matplotlib 3.7.1 (in generated script) |
+| Plotting | matplotlib ≥ 3.8 (in generated script) |
 | Sandbox | Subprocess + PEP 578 audit hook, stripped env, resource limits, timeout |
 | Config | python-dotenv |
 | Lint / CI | ruff + pytest + GitHub Actions |
@@ -158,7 +158,7 @@ pip install -e ".[dev]"       # core + chat + test tools
 cp template.env .env          # chat assistant only
 ```
 
-Open `.env` and fill in your key:
+Open `.env` and fill in your key. If you installed from PyPI, there's no `template.env`: just create a file named `.env` in the folder you'll run `mavpose` from (MAVPose looks there and in parent folders), or set the variables in your shell.
 
 ```env
 OPENROUTER_API_KEY=your-key-here
@@ -205,7 +205,7 @@ options:
   -v, --verbose         Enable debug logging
 ```
 
-The output plot is saved as `plot.png`, and intermediate telemetry as `telemetry.parquet`, both in the same directory as your log file.
+The output plot is saved as `plot.png`, and intermediate telemetry as `telemetry.parquet`, both in the same directory as your log file. Each run replaces the previous files. `mavpose` only reports success when the script saved a new plot; with `--prompt` it exits with status 1 otherwise.
 
 > **Need a sample log file?**  
 > [Download here](https://drive.google.com/file/d/1BKv-NbSvYQz9XqqmyOyOhe3o4PAFDyZa/view?usp=sharing)
@@ -219,7 +219,6 @@ The output plot is saved as `plot.png`, and intermediate telemetry as `telemetry
 | `telemetry.parquet` | Extracted, time-aligned telemetry for the relevant message types |
 | `plot.py` | The LLM-generated pandas + matplotlib script |
 | `plot.png` | The final plot at 400 dpi |
-| `chroma_db/` | Persisted ChromaDB vector store (git-ignored) |
 
 ---
 
@@ -357,7 +356,7 @@ In a core-only install (`pip install -e .`), the chat tests skip themselves.
 
 | Issue | Cause | Fix |
 |---|---|---|
-| `KeyError: OPENROUTER_API_KEY` | `.env` not configured | Copy `template.env` to `.env` and add your key |
+| `OPENROUTER_API_KEY is not set` | No key in the shell or in a `.env` file | Create `.env` in the folder you run `mavpose` from with `OPENROUTER_API_KEY=your-key`, or export the variable |
 | `ModuleNotFoundError: pandas` | Missing dependency | Run `pip install mavpose` |
 | `ModuleNotFoundError: pyarrow` | Missing dependency | Run `pip install mavpose` |
 | "The MAVPose chat assistant needs extra packages" | Core-only install | Run `pip install "mavpose[chat]"` |

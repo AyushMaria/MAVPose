@@ -5,10 +5,20 @@ plot:
 
 ```bash
 pip install "mavpose[chat]"
-cp template.env .env          # add your OPENROUTER_API_KEY
+echo "OPENROUTER_API_KEY=your-key-here" > .env    # or export OPENROUTER_API_KEY=...
 mavpose flight.tlog --prompt "Plot altitude and battery voltage"
 mavpose flight.ulg            # interactive mode: ask several questions
 ```
+
+Get a key at [openrouter.ai/keys](https://openrouter.ai/keys). MAVPose reads
+`.env` from the folder you run `mavpose` in, or a parent folder; a variable
+already set in your shell takes precedence. Add `OPENROUTER_MODEL=...` to use
+a different model (default `z-ai/glm-5.1`). Never commit `.env`.
+
+Each run writes `telemetry.parquet`, `plot.py` and `plot.png` next to the
+log, replacing the previous ones. The command reports success only when
+the script actually saved a new `plot.png`, and with `--prompt` it exits
+with status 1 if no plot was created.
 
 ## How it works
 
