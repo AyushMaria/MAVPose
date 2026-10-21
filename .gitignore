@@ -23,8 +23,12 @@ env/
 *.bin
 
 # Generated output
-target/plot.py
-target/plot.png
+plot.py
+plot.png
+telemetry.parquet
+
+# MkDocs build output (docs are built in CI, not committed)
+site/
 
 # ChromaDB local vector store
 chroma_db/
