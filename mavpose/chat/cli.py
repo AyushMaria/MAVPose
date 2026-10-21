@@ -69,10 +69,24 @@ def build_parser() -> argparse.ArgumentParser:
              "API key is set (OpenRouter keeps working as before).",
     )
     p.add_argument(
+        "--code",
+        action="store_true",
+        help="Have the model write a Python plotting script instead of a plot "
+             "spec. More flexible, but runs generated code (in a restricted "
+             "subprocess).",
+    )
+    p.add_argument(
+        "--spec",
+        default=None,
+        metavar="FILE",
+        help="Redraw a saved plot spec (e.g. plot.json) on this log. "
+             "No model or API key needed.",
+    )
+    p.add_argument(
         "--retries", "-r",
         type=int,
         default=3,
-        help="Max self-healing retries on script failure (default: 3)",
+        help="Attempts per request when the spec or script fails (default: 3)",
     )
     p.add_argument(
         "--verbose", "-v",
@@ -115,7 +129,26 @@ def run_once(creator: PlotCreator, prompt: str) -> bool:
     _print_parquet_summary(schema_summary)
     print(f"   Saved → {creator.parquet_path}")
 
-    # --- Phase 2: LLM writes the script ---
+    if creator.mode == "spec":
+        print(f"\n✍️  Asking {creator.model} to design the plot...")
+        creator.plot_from_spec(prompt, schema_summary)
+        print("\n" + "─" * 60)
+        print("Plot spec:")
+        print("─" * 60)
+        print(creator.last_code)
+        print("─" * 60)
+        if creator.last_success:
+            print(f"\n✅ Plot saved to: {creator.plot_path}")
+            print(f"   Spec saved to: {creator.spec_path}  (redraw with --spec)")
+        else:
+            print(
+                f"\n❌ No plot was created: the model's spec couldn't be drawn after "
+                f"{creator.max_retries} attempt(s). Run with --verbose to see each "
+                "error, or try a more specific request."
+            )
+        return creator.last_success
+
+    # --- Phase 2 (code mode): LLM writes the script ---
     print(f"\n✍️  Generating plot script with {creator.model}...")
     creator.create_plot(prompt, schema_summary)
 
@@ -160,12 +193,50 @@ def interactive_mode(creator: PlotCreator) -> None:
             print(f"❌ Error: {exc}")
 
 
+def redraw_spec(log_file: str, spec_file: str) -> bool:
+    """Draw a saved plot spec on *log_file*, without a model.  Returns success."""
+    import json
+    import os
+
+    log = logging.getLogger("mavpose.cli")
+    try:
+        import matplotlib  # noqa: F401
+    except ImportError:
+        print("Drawing plots needs matplotlib: pip install 'mavpose[chat]'", file=sys.stderr)
+        return False
+    from mavpose import LogExtractor, validate_mavlink_file
+    from mavpose.chat.plotspec import PlotSpecError, parse_spec, render_spec
+
+    try:
+        with open(spec_file, encoding="utf-8") as fh:
+            spec = parse_spec(fh.read())
+        validate_mavlink_file(log_file)
+    except (OSError, ValueError) as exc:   # includes PlotSpecError, FileValidationError
+        log.error("%s", exc)
+        return False
+    out = os.path.join(os.path.dirname(os.path.abspath(log_file)), "plot.png")
+    print(f"\n📂 Reading {log_file}")
+    extractor = LogExtractor(log_file)
+    extractor.extract_all()
+    try:
+        drawn = render_spec(spec, extractor.frames, extractor.units, out)
+    except PlotSpecError as exc:
+        log.error("The spec doesn't fit this log: %s", exc)
+        return False
+    print(json.dumps(drawn, indent=2))
+    print(f"\n✅ Plot saved to: {out}")
+    return True
+
+
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
 
     configure_logging(args.verbose)
     log = logging.getLogger("mavpose.cli")
+
+    if args.spec:
+        sys.exit(0 if redraw_spec(args.log_file, args.spec) else 1)
 
     from mavpose.chat._deps import ChatDependenciesMissing
     try:
@@ -176,7 +247,8 @@ def main() -> None:
 
     from mavpose.chat.llm import ModelConfigError
     try:
-        creator = PlotCreator(max_retries=args.retries, model=args.model)
+        creator = PlotCreator(max_retries=args.retries, model=args.model,
+                              mode="code" if args.code else "spec")
     except ModelConfigError as exc:   # includes MissingAPIKeyError
         print(f"❌ {exc}", file=sys.stderr)
         sys.exit(1)

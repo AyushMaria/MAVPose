@@ -15,13 +15,14 @@
 
 ---
 
-MAVPose is a headless CLI tool that turns a natural language prompt into a matplotlib plot of your MAVLink flight log. It runs a **two-phase pipeline**: the parent process first extracts clean, time-aligned telemetry into a Parquet file (like a headless database query), then hands the LLM a precise column schema and a `pd.read_parquet()` call — no raw binary data, no pymavlink in the generated script. This drastically reduces hallucinations and self-healing loops.
+MAVPose reads ArduPilot and PX4 flight logs into clean, time-aligned pandas data with real units, and its optional assistant turns a plain-English request into a plot. The assistant works with any AI provider, including local models. The model never sees the raw log: it gets the log's message types and a precise column schema with units, and replies with a small JSON **plot spec** that MAVPose checks and draws itself, so no generated code runs. Specs are saved, so any plot can be redrawn later without a model.
 
 ```
-$ mavpose flight.tlog --prompt "Plot altitude over time"
+$ mavpose flight.tlog --model openai:<model> --prompt "Plot altitude over time"
+🤖 Model: openai:<model>
 
 📂 Parsing log schema: flight.tlog
-✅ Schema indexed.
+✅ Found 38 message types.
 
 🔍 Finding relevant message types for: 'Plot altitude over time'
    → ['GLOBAL_POSITION_INT', 'VFR_HUD']
@@ -39,9 +40,9 @@ $ mavpose flight.tlog --prompt "Plot altitude over time"
 └──────────────────────────────────────────────────────────┘
    Saved → /path/to/telemetry.parquet
 
-✍️  Generating plot script with z-ai/glm-5.1...
-⚙️  Running script...
+✍️  Asking openai:<model> to design the plot...
 ✅ Plot saved to: /path/to/plot.png
+   Spec saved to: /path/to/plot.json  (redraw with --spec)
 ```
 
 ---
@@ -70,19 +71,17 @@ $ mavpose flight.tlog --prompt "Plot altitude over time"
 ├──────────────────────────────────────────────────────────┤
 │                                                             │
 │  LLM receives:                                              │
-│    └─ parquet_file path                                    │
-│    └─ schema: {msg_type: {rows, columns: {col: dtype+range}}} │
-│    └─ output_file path (.png)                              │
+│    └─ schema: {msg_type: {columns: {col: dtype, unit, range}}} │
 │                                                             │
-│  LLM writes pandas + matplotlib script                      │
-│    df = pd.read_parquet(parquet_file)                       │
-│    df_x = df[df['msg_type'] == 'X']                         │
-│    ...                                                      │
+│  Default: LLM replies with a JSON plot spec                 │
+│    {"panels": [{"series": [{"msg_type", "field"}]}]}       │
+│    └─ MAVPose validates it against the log and draws it    │
+│    └─ invalid spec? the error goes back to the LLM, N×     │
+│    → plot.png + plot.json (redraw with --spec)             │
 │                                                             │
-│  run_script() → subprocess exec                            │
-│    └─ on failure: attempt_to_fix_script() up to N×         │
-│                                                             │
-│  → plot.png saved next to log file                          │
+│  --code: LLM writes a pandas + matplotlib script instead    │
+│    └─ run in a restricted subprocess, fixed up to N×       │
+│    → plot.png + plot.py                                    │
 └──────────────────────────────────────────────────────────┘
 ```
 
@@ -102,8 +101,10 @@ $ mavpose flight.tlog --prompt "Plot altitude over time"
 - **Clean Parquet handoff** — only the relevant message types are exported; the LLM sees exact column names, dtypes, min/max ranges — no binary guesswork
 - **Any AI provider** — OpenAI, Anthropic, Gemini, OpenRouter, Groq, DeepSeek, Mistral, Together, local Ollama / LM Studio, or any OpenAI-compatible server
 - **Smart message selection** — the model picks the message types it needs from the log's own list
-- **Self-healing scripts** — LLM debugs and rewrites failing scripts up to N times; fix prompt also includes the full schema
-- **Restricted execution** — generated code runs in a clean subprocess (no API keys in its environment) under a PEP 578 audit hook that blocks process spawning, network access and file writes outside the output folder, with CPU/memory limits and a timeout. This is defence in depth, not a hard security boundary: for untrusted logs or prompts, also run MAVPose in a container
+- **No generated code by default** — the model describes the plot as a JSON spec; MAVPose validates it against the log and draws it, with units on every axis. Invalid specs go back to the model with the exact error
+- **Reproducible plots** — every spec is saved as `plot.json`; `mavpose flight.bin --spec plot.json` redraws it on any log, no model or API key needed
+- **Code mode when you need it** — `--code` has the model write a pandas + matplotlib script instead, for plots a spec can't describe
+- **Restricted execution (code mode)** — generated code runs in a clean subprocess (no API keys in its environment) under a PEP 578 audit hook that blocks process spawning, network access and file writes outside the output folder, with CPU/memory limits and a timeout. This is defence in depth, not a hard security boundary: for untrusted logs or prompts, also run MAVPose in a container
 - **Interactive REPL mode** — omit `--prompt` to enter a live loop; Parquet is re-extracted per query with the relevant types
 - **CI-tested** — lint (ruff) and pytest run on every push
 
@@ -190,7 +191,7 @@ mavpose flight.tlog
 ### All CLI flags
 
 ```
-usage: mavpose [-h] [--prompt PROMPT] [--model PROVIDER:MODEL] [--retries N] [--verbose] log_file
+usage: mavpose [-h] [--prompt PROMPT] [--model PROVIDER:MODEL] [--code] [--spec FILE] [--retries N] [--verbose] log_file
 
 positional arguments:
   log_file              Path to a flight log: MAVLink .tlog, ArduPilot .bin/.log, or PX4 .ulg
@@ -199,11 +200,19 @@ options:
   -p, --prompt TEXT     Plot request. Omit for interactive mode.
   -m, --model P:M       Model as provider:model, e.g. openai:<model>, ollama:llama3.1:8b
                         (default: MAVPOSE_MODEL, or the provider whose key is set)
-  -r, --retries N       Max self-healing retries on script failure (default: 3)
+  --code                Have the model write a Python script instead of a plot spec
+  --spec FILE           Redraw a saved plot spec (plot.json) on this log; no model needed
+  -r, --retries N       Attempts per request when the spec or script fails (default: 3)
   -v, --verbose         Enable debug logging
 ```
 
-The output plot is saved as `plot.png`, and intermediate telemetry as `telemetry.parquet`, both in the same directory as your log file. Each run replaces the previous files. `mavpose` only reports success when the script saved a new plot; with `--prompt` it exits with status 1 otherwise.
+The output plot is saved as `plot.png`, its spec as `plot.json`, and intermediate telemetry as `telemetry.parquet`, all in the same directory as your log file. Each run replaces the previous files. `mavpose` only reports success when a new plot was saved; with `--prompt` it exits with status 1 otherwise.
+
+To redraw a plot later, or on another flight's log, without any model:
+
+```bash
+mavpose other_flight.tlog --spec plot.json
+```
 
 > **Need a sample log file?**  
 > [Download here](https://drive.google.com/file/d/1BKv-NbSvYQz9XqqmyOyOhe3o4PAFDyZa/view?usp=sharing)
@@ -215,8 +224,9 @@ The output plot is saved as `plot.png`, and intermediate telemetry as `telemetry
 | File | Description |
 |---|---|
 | `telemetry.parquet` | Extracted, time-aligned telemetry for the relevant message types |
-| `plot.py` | The LLM-generated pandas + matplotlib script |
-| `plot.png` | The final plot at 400 dpi |
+| `plot.png` | The plot |
+| `plot.json` | The plot spec: redraw it with `--spec` |
+| `plot.py` | The generated script (`--code` mode only) |
 
 ---
 
@@ -328,10 +338,10 @@ creator.parse_mavlink_log()
 msg_types = creator.find_relevant_data_types("Plot altitude over time")
 schema_summary = creator.extract_dataframes(msg_types)
 
-# Phase 2: LLM writes + executes the script
-creator.create_plot("Plot altitude over time", schema_summary)
-result, code = creator.run_script()
-# → plot.png and telemetry.parquet saved next to the log file
+# Phase 2: the model designs the plot as a JSON spec; MAVPose draws it
+ok = creator.plot_from_spec("Plot altitude over time", schema_summary)
+# → plot.png, plot.json and telemetry.parquet saved next to the log file
+# (PlotCreator(mode="code") + create_plot() / run_script() for code mode)
 ```
 
 ---

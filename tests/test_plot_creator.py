@@ -6,6 +6,7 @@ The LLM chains are never invoked; ChatOpenAI is constructed but makes no
 network calls until used.
 """
 
+import json
 import os
 import sys
 from unittest.mock import patch
@@ -305,6 +306,7 @@ class TestCliOutcome:
         c.last_success = success
         c.max_retries = 3
         c.plot_path = "/logs/plot.png"
+        c.mode = "code"
         return c
 
     def test_failure_is_reported(self, capsys):
@@ -349,3 +351,152 @@ class TestCliOutcome:
             cli.main()
         assert exc.value.code == 1
         assert "Did you mean 'anthropic'" in capsys.readouterr().err
+
+
+class TestSpecMode:
+    """R7: the model describes the plot as JSON and MAVPose draws it."""
+
+    GOOD = '{"title": "Alt", "panels": [{"series": [{"msg_type": "GLOBAL_POSITION_INT", "field": "relative_alt"}]}]}'
+    BAD = '{"panels": [{"series": [{"msg_type": "GLOBAL_POSITION_INT", "field": "altitude"}]}]}'
+
+    def _ready(self, creator, tmp_path, replies):
+        from unittest.mock import MagicMock
+
+        from tests.log_builders import build_tlog
+
+        creator.set_logfile_name(str(build_tlog(tmp_path / "f.tlog")))
+        creator.parse_mavlink_log()
+        schema = creator.extract_dataframes(["GLOBAL_POSITION_INT"])
+        creator._spec_chain = MagicMock()
+        creator._spec_chain.invoke.side_effect = list(replies)
+        return schema
+
+    def test_is_the_default_mode(self, creator):
+        assert creator.mode == "spec"
+
+    def test_rejects_unknown_mode(self, clean_env):
+        clean_env.setenv("OPENROUTER_API_KEY", "k")
+        with pytest.raises(ValueError, match="mode must be"):
+            PlotCreator(mode="magic")
+
+    def test_good_spec_is_drawn_and_saved(self, creator, tmp_path):
+        schema = self._ready(creator, tmp_path, [f"```json\n{self.GOOD}\n```"])
+        assert creator.plot_from_spec("plot altitude", schema) is True
+        assert creator.last_success
+        assert open(creator.plot_path, "rb").read(4) == b"\x89PNG"
+        saved = json.load(open(creator.spec_path))
+        assert saved["panels"][0]["series"][0]["field"] == "relative_alt"
+        assert creator.last_spec == saved
+
+    def test_no_code_is_written_or_run(self, creator, tmp_path):
+        schema = self._ready(creator, tmp_path, [self.GOOD])
+        with patch("mavpose.chat.plot_creator.execute_script") as run:
+            creator.plot_from_spec("plot altitude", schema)
+        run.assert_not_called()
+        assert not os.path.exists(creator.script_path)
+
+    def test_invalid_spec_is_sent_back_with_the_error(self, creator, tmp_path):
+        schema = self._ready(creator, tmp_path, [self.BAD, self.GOOD])
+        assert creator.plot_from_spec("plot altitude", schema) is True
+        second = creator._spec_chain.invoke.call_args_list[1][0][0]
+        assert "No field 'altitude'" in second["feedback"]
+        assert "relative_alt" in second["feedback"]   # the valid fields are listed
+
+    def test_gives_up_after_max_retries_and_leaves_no_plot(self, creator, tmp_path):
+        schema = self._ready(creator, tmp_path, [self.BAD] * creator.max_retries)
+        with open(creator.plot_path, "wb") as fh:
+            fh.write(b"old")
+        assert creator.plot_from_spec("plot altitude", schema) is False
+        assert creator._spec_chain.invoke.call_count == creator.max_retries
+        assert not creator.last_success
+        assert not os.path.exists(creator.plot_path)
+
+    def test_follow_up_sees_the_previous_spec(self, creator, tmp_path):
+        schema = self._ready(creator, tmp_path, [self.GOOD, self.GOOD])
+        creator.plot_from_spec("plot altitude", schema)
+        creator.plot_from_spec("make it red", schema)
+        second = creator._spec_chain.invoke.call_args_list[1][0][0]
+        assert "relative_alt" in second["history"]
+        assert second["human_input"] == "make it red"
+
+    def test_prompt_contains_units_and_format(self, creator, tmp_path):
+        schema = self._ready(creator, tmp_path, [self.GOOD])
+        creator.plot_from_spec("plot altitude", schema)
+        sent = creator._spec_chain.invoke.call_args[0][0]
+        assert '"unit": "m"' in sent["schema"]
+        assert '"panels"' in sent["format"]
+
+    def test_code_mode_still_available(self, clean_env):
+        clean_env.setenv("OPENROUTER_API_KEY", "k")
+        assert PlotCreator(mode="code").mode == "code"
+
+
+class TestCliSpecOptions:
+
+    def _spec_mode_creator(self, success):
+        c = TestCliOutcome()._creator(success)
+        c.mode = "spec"
+        c.last_code = '{"panels": []}'
+        c.spec_path = "/logs/plot.json"
+        return c
+
+    def test_spec_mode_success(self, capsys):
+        from mavpose.chat.cli import run_once
+
+        c = self._spec_mode_creator(True)
+        assert run_once(c, "plot it") is True
+        out = capsys.readouterr().out
+        assert "Plot spec:" in out and "Spec saved to: /logs/plot.json" in out
+        c.run_script.assert_not_called()
+
+    def test_spec_mode_failure(self, capsys):
+        from mavpose.chat.cli import run_once
+
+        assert run_once(self._spec_mode_creator(False), "plot it") is False
+        assert "couldn't be drawn" in capsys.readouterr().out
+
+    def test_code_flag_selects_code_mode(self, clean_env, capsys, tmp_path):
+        from mavpose.chat import cli
+
+        clean_env.setenv("OPENROUTER_API_KEY", "k")
+        seen = {}
+
+        import mavpose.chat.plot_creator as pc
+
+        class Spy(pc.PlotCreator):
+            def __init__(self, **kw):
+                seen.update(kw)
+                super().__init__(**kw)
+
+        clean_env.setattr(pc, "PlotCreator", Spy)
+        clean_env.setattr(sys, "argv", ["mavpose", str(tmp_path / "nope.tlog"), "--code"])
+        with pytest.raises(SystemExit):
+            cli.main()
+        assert seen["mode"] == "code"
+
+    def test_redraw_saved_spec_without_any_model(self, clean_env, tmp_path, capsys):
+        from mavpose.chat import cli
+        from tests.log_builders import build_tlog
+
+        log = build_tlog(tmp_path / "f.tlog")
+        spec = tmp_path / "plot.json"
+        spec.write_text(TestSpecMode.GOOD)
+        clean_env.setattr(sys, "argv", ["mavpose", str(log), "--spec", str(spec)])
+        with pytest.raises(SystemExit) as exc:
+            cli.main()
+        assert exc.value.code == 0          # no API key anywhere in clean_env
+        assert (tmp_path / "plot.png").read_bytes()[:4] == b"\x89PNG"
+        assert "Plot saved to" in capsys.readouterr().out
+
+    def test_redraw_reports_a_spec_that_does_not_fit(self, clean_env, tmp_path, capsys):
+        from mavpose.chat import cli
+        from tests.log_builders import build_tlog
+
+        log = build_tlog(tmp_path / "f.tlog")
+        spec = tmp_path / "plot.json"
+        spec.write_text(TestSpecMode.BAD)
+        clean_env.setattr(sys, "argv", ["mavpose", str(log), "--spec", str(spec)])
+        with pytest.raises(SystemExit) as exc:
+            cli.main()
+        assert exc.value.code == 1
+        assert not (tmp_path / "plot.png").exists()
