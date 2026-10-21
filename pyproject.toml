@@ -38,3 +38,8 @@ mavpose-mcp = "mavpose.mcp_server:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["mavpose"]
+
+[tool.ruff.lint]
+# Same rules CI uses, so a plain `ruff check` matches CI.
+select = ["E", "F", "W", "B"]
+ignore = ["E501"]

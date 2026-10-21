@@ -1,0 +1,57 @@
+name: A log is read wrongly
+description: Wrong units, fake readings, a time axis that doesn't line up, missing messages, or a log that won't load.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks! Reports like this are how MAVPose learns about real-world log quirks.
+
+        **Before attaching a log:** flight logs contain GPS positions, often including where you live or work. Only attach logs you're happy to make public.
+  - type: dropdown
+    id: format
+    attributes:
+      label: Log format
+      options:
+        - MAVLink telemetry log (.tlog)
+        - ArduPilot DataFlash (.bin / .log)
+        - PX4 ULog (.ulg)
+    validations:
+      required: true
+  - type: input
+    id: firmware
+    attributes:
+      label: Autopilot and firmware version that wrote the log
+      placeholder: "e.g. ArduCopter 4.5.7, PX4 v1.15.2, or 'ground station: Mission Planner 1.3.82'"
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What's wrong
+      description: Which message type and field, what MAVPose gives you, and what you expected (and why, e.g. what the autopilot docs or another tool show).
+      placeholder: |
+        BATTERY_STATUS.current_battery reads -0.01 A for the first 30 s; it should be NaN (the autopilot sends -1 = "not measured").
+    validations:
+      required: true
+  - type: textarea
+    id: code
+    attributes:
+      label: Code to reproduce
+      render: python
+      placeholder: |
+        import mavpose
+        log = mavpose.load("flight.bin")
+        print(log.series("BAT", "Curr").head())
+  - type: input
+    id: version
+    attributes:
+      label: MAVPose version
+      description: Output of `python -c "import mavpose; print(mavpose.__version__)"`
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Log file (optional)
+      description: Drag the log here (zip it if GitHub refuses the extension), or link to it. A short excerpt is fine.
