@@ -82,7 +82,8 @@ No code from the model runs. The plot is saved as `plot.png` and its spec as
 `plot.json` next to the log. Use `--out-dir DIR` to save them elsewhere (useful
 when the log is on a read-only card), `--format svg` or `pdf` for reports, and
 `--dpi N` to change the resolution (default 150). Ask a follow-up in interactive mode ("make the
-current red", "only the first minute") and the model sees the previous spec.
+current red", "only the first minute", "add GPS altitude too") and the model
+sees your last three requests and their specs.
 
 ## Plot specs
 

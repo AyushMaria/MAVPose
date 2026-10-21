@@ -699,3 +699,80 @@ class TestOutputOptions:
         assert not (tmp_path / "plot.png").exists()
         assert cli.redraw_spec(str(log), str(spec), out_dir=str(tmp_path / "p"), dpi=50)
         assert self._png_width(tmp_path / "p" / "plot.png") == 500   # 10 in x 50 dpi
+
+
+class TestRequestHistory:
+    """#16: follow-up requests see earlier requests, not just the last result."""
+
+    def _spec_creator(self, creator, tmp_path, n):
+        return TestSpecMode()._ready(creator, tmp_path, [TestSpecMode.GOOD] * n)
+
+    def test_spec_mode_sees_earlier_requests_and_specs(self, creator, tmp_path):
+        schema = self._spec_creator(creator, tmp_path, 3)
+        creator.plot_from_spec("plot altitude", schema)
+        creator.plot_from_spec("add a title", schema)
+        creator.plot_from_spec("now make it red", schema)
+        third = creator._spec_chain.invoke.call_args_list[2][0][0]["history"]
+        assert "1. Request: plot altitude" in third
+        assert "2. Request: add a title" in third
+        assert third.count("Spec: {") == 2
+
+    def test_history_is_capped(self, creator, tmp_path):
+        from mavpose.chat.plot_creator import MAX_HISTORY
+
+        schema = self._spec_creator(creator, tmp_path, MAX_HISTORY + 2)
+        for i in range(MAX_HISTORY + 2):
+            creator.plot_from_spec(f"request {i}", schema)
+        assert [h["request"] for h in creator.history] == [
+            f"request {i}" for i in range(2, MAX_HISTORY + 2)]
+        last = creator._spec_chain.invoke.call_args[0][0]["history"]
+        assert "request 0" not in last and f"request {MAX_HISTORY}" in last
+
+    def test_failed_requests_are_not_remembered(self, creator, tmp_path):
+        schema = TestSpecMode()._ready(creator, tmp_path,
+                                       [TestSpecMode.BAD] * creator.max_retries)
+        assert not creator.plot_from_spec("plot altitude", schema)
+        assert creator.history == []
+
+    def test_new_log_clears_history_but_same_log_keeps_it(self, creator, tmp_path):
+        from tests.log_builders import build_tlog
+
+        schema = self._spec_creator(creator, tmp_path, 1)
+        creator.plot_from_spec("plot altitude", schema)
+        creator.set_logfile_name(creator.logfile_name)
+        assert len(creator.history) == 1
+        creator.set_logfile_name(str(build_tlog(tmp_path / "other.tlog")))
+        assert creator.history == [] and creator.last_spec is None
+
+    def test_code_mode_remembers_requests_and_the_latest_script(self, clean_env, tmp_path):
+        from unittest.mock import MagicMock
+
+        from tests.log_builders import build_tlog
+
+        clean_env.setenv("OPENROUTER_API_KEY", "k")
+        c = PlotCreator(mode="code", max_retries=1)
+        c.set_logfile_name(str(build_tlog(tmp_path / "f.tlog")))
+        script = f"open({c.plot_path!r}, 'wb').write(b'png')  # v{{n}}"
+        c._plot_chain = MagicMock()
+        for n in (1, 2, 3):
+            c._plot_chain.invoke.return_value = f"```python\n{script.format(n=n)}\n```"
+            c.create_plot(f"request {n}", {})
+            assert c.run_script().success
+        third = c._plot_chain.invoke.call_args_list[2][0][0]["history"]
+        assert "1. Request: request 1" in third and "2. Request: request 2" in third
+        assert "# v2" in third and "# v1" not in third     # only the latest script
+        assert [h["request"] for h in c.history] == ["request 1", "request 2", "request 3"]
+
+    def test_code_mode_failed_run_is_not_remembered(self, clean_env, tmp_path):
+        from unittest.mock import MagicMock
+
+        from tests.log_builders import build_tlog
+
+        clean_env.setenv("OPENROUTER_API_KEY", "k")
+        c = PlotCreator(mode="code", max_retries=1)
+        c.set_logfile_name(str(build_tlog(tmp_path / "f.tlog")))
+        c._plot_chain = MagicMock()
+        c._plot_chain.invoke.return_value = "```python\nraise ValueError('no')\n```"
+        c.create_plot("plot altitude", {})
+        assert not c.run_script().success
+        assert c.history == []

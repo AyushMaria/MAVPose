@@ -19,6 +19,10 @@ uses [Semantic Versioning](https://semver.org/) as described in
   snippet is never run as the plot script. (#13)
 
 ### Added
+- Follow-up requests see the last 3 requests of the session, not just the
+  last result, so "now add GPS altitude" or "same, but for the first
+  minute" work in both modes. Loading another log starts fresh.
+  `PlotCreator.history`. (#16)
 - `mavpose --out-dir DIR` (`PlotCreator(output_dir=...)`): save the plot,
   its spec or script, and `telemetry.parquet` to another folder, created if
   needed. Works with `--spec` redraws too. (#11)
