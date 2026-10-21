@@ -30,7 +30,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:  # imported lazily in main() so --help works without extras
     from mavpose.chat.plot_creator import PlotCreator
@@ -43,6 +43,16 @@ def configure_logging(verbose: bool) -> None:
         datefmt="%H:%M:%S",
         level=level,
     )
+
+
+def _positive_int(text: str) -> int:
+    try:
+        value = int(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"{text!r} is not a whole number") from None
+    if value <= 0:
+        raise argparse.ArgumentTypeError("must be greater than 0")
+    return value
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -81,6 +91,25 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="FILE",
         help="Redraw a saved plot spec (e.g. plot.json) on this log. "
              "No model or API key needed.",
+    )
+    p.add_argument(
+        "--out-dir", "-o",
+        default=None,
+        metavar="DIR",
+        help="Folder for the plot, its spec or script, and telemetry.parquet "
+             "(created if needed). Default: the log's folder.",
+    )
+    p.add_argument(
+        "--format", "-f",
+        default="png",
+        choices=["png", "svg", "pdf"],
+        help="Plot file format (default: png).",
+    )
+    p.add_argument(
+        "--dpi",
+        type=_positive_int,
+        default=None,
+        help="Plot resolution (default: 150, or 400 with --code). Ignored for svg.",
     )
     p.add_argument(
         "--retries", "-r",
@@ -193,7 +222,8 @@ def interactive_mode(creator: PlotCreator) -> None:
             print(f"❌ Error: {exc}")
 
 
-def redraw_spec(log_file: str, spec_file: str) -> bool:
+def redraw_spec(log_file: str, spec_file: str, out_dir: Optional[str] = None,
+                fmt: str = "png", dpi: Optional[int] = None) -> bool:
     """Draw a saved plot spec on *log_file*, without a model.  Returns success."""
     import json
     import os
@@ -214,12 +244,14 @@ def redraw_spec(log_file: str, spec_file: str) -> bool:
     except (OSError, ValueError) as exc:   # includes PlotSpecError, FileValidationError
         log.error("%s", exc)
         return False
-    out = os.path.join(os.path.dirname(os.path.abspath(log_file)), "plot.png")
+    folder = os.path.abspath(out_dir or os.path.dirname(os.path.abspath(log_file)))
+    os.makedirs(folder, exist_ok=True)
+    out = os.path.join(folder, f"plot.{fmt}")
     print(f"\n📂 Reading {log_file}")
     extractor = LogExtractor(log_file)
     extractor.extract_all()
     try:
-        drawn = render_spec(spec, extractor.frames, extractor.units, out)
+        drawn = render_spec(spec, extractor.frames, extractor.units, out, dpi=dpi or 150)
     except PlotSpecError as exc:
         log.error("The spec doesn't fit this log: %s", exc)
         return False
@@ -236,7 +268,9 @@ def main() -> None:
     log = logging.getLogger("mavpose.cli")
 
     if args.spec:
-        sys.exit(0 if redraw_spec(args.log_file, args.spec) else 1)
+        ok = redraw_spec(args.log_file, args.spec, out_dir=args.out_dir,
+                         fmt=args.format, dpi=args.dpi)
+        sys.exit(0 if ok else 1)
 
     from mavpose.chat._deps import ChatDependenciesMissing
     try:
@@ -248,7 +282,8 @@ def main() -> None:
     from mavpose.chat.llm import ModelConfigError
     try:
         creator = PlotCreator(max_retries=args.retries, model=args.model,
-                              mode="code" if args.code else "spec")
+                              mode="code" if args.code else "spec",
+                              dpi=args.dpi, fmt=args.format, output_dir=args.out_dir)
     except ModelConfigError as exc:   # includes MissingAPIKeyError
         print(f"❌ {exc}", file=sys.stderr)
         sys.exit(1)

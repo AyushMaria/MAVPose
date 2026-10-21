@@ -79,7 +79,9 @@ with status 1 if no plot was created.
    say), the exact error goes back to the model, up to `--retries` attempts.
 
 No code from the model runs. The plot is saved as `plot.png` and its spec as
-`plot.json` next to the log. Ask a follow-up in interactive mode ("make the
+`plot.json` next to the log. Use `--out-dir DIR` to save them elsewhere (useful
+when the log is on a read-only card), `--format svg` or `pdf` for reports, and
+`--dpi N` to change the resolution (default 150). Ask a follow-up in interactive mode ("make the
 current red", "only the first minute") and the model sees the previous spec.
 
 ## Plot specs

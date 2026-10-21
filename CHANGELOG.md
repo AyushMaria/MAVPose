@@ -19,6 +19,12 @@ uses [Semantic Versioning](https://semver.org/) as described in
   snippet is never run as the plot script. (#13)
 
 ### Added
+- `mavpose --out-dir DIR` (`PlotCreator(output_dir=...)`): save the plot,
+  its spec or script, and `telemetry.parquet` to another folder, created if
+  needed. Works with `--spec` redraws too. (#11)
+- `mavpose --format png|svg|pdf` and `--dpi N` (`PlotCreator(fmt=..., dpi=...)`),
+  for spec mode, code mode and `--spec` redraws. Code mode's prompt now uses
+  the chosen resolution instead of a fixed 400 dpi. (#12)
 - Pre-commit hooks (`pre-commit install`) that run the same lint checks as
   CI. (#15)
 
