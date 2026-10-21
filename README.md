@@ -191,7 +191,8 @@ mavpose flight.tlog
 ### All CLI flags
 
 ```
-usage: mavpose [-h] [--prompt PROMPT] [--model PROVIDER:MODEL] [--code] [--spec FILE] [--retries N] [--verbose] log_file
+usage: mavpose [-h] [--prompt PROMPT] [--model PROVIDER:MODEL] [--code] [--spec FILE]
+               [--out-dir DIR] [--format {png,svg,pdf}] [--dpi N] [--retries N] [--verbose] log_file
 
 positional arguments:
   log_file              Path to a flight log: MAVLink .tlog, ArduPilot .bin/.log, or PX4 .ulg
@@ -202,11 +203,14 @@ options:
                         (default: MAVPOSE_MODEL, or the provider whose key is set)
   --code                Have the model write a Python script instead of a plot spec
   --spec FILE           Redraw a saved plot spec (plot.json) on this log; no model needed
+  -o, --out-dir DIR     Folder for all outputs (created if needed; default: the log's folder)
+  -f, --format FMT      png (default), svg or pdf
+  --dpi N               Resolution (default: 150, or 400 with --code); ignored for svg
   -r, --retries N       Attempts per request when the spec or script fails (default: 3)
   -v, --verbose         Enable debug logging
 ```
 
-The output plot is saved as `plot.png`, its spec as `plot.json`, and intermediate telemetry as `telemetry.parquet`, all in the same directory as your log file. Each run replaces the previous files. `mavpose` only reports success when a new plot was saved; with `--prompt` it exits with status 1 otherwise.
+The output plot is saved as `plot.png` (or `.svg` / `.pdf` with `--format`), its spec as `plot.json`, and intermediate telemetry as `telemetry.parquet`, all in the same directory as your log file, or in `--out-dir`. Each run replaces the previous files. `mavpose` only reports success when a new plot was saved; with `--prompt` it exits with status 1 otherwise.
 
 To redraw a plot later, or on another flight's log, without any model:
 

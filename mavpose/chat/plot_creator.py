@@ -59,6 +59,8 @@ logger = logging.getLogger(__name__)
 __all__ = ["PlotCreator", "RunResult", "MissingAPIKeyError", "ModelConfigError", "VALID_EXTENSIONS"]
 
 MODES = ("spec", "code")
+FORMATS = ("png", "svg", "pdf")
+DEFAULT_DPI = {"spec": 150, "code": 400}
 
 _PYTHON_TAGS = {"python", "py", "python3"}
 
@@ -173,7 +175,13 @@ class PlotCreator:
     mode:
         ``"spec"`` (default) or ``"code"``.
     dpi:
-        Resolution of the saved plot in spec mode (code mode asks the model for 400).
+        Resolution of the saved plot.  Default: 150 in spec mode, 400 in code
+        mode.  Ignored for SVG.
+    fmt:
+        ``"png"`` (default), ``"svg"`` or ``"pdf"``: the plot's file format.
+    output_dir:
+        Folder for ``plot.*``, ``plot.json``/``plot.py`` and
+        ``telemetry.parquet``; created if needed.  Default: the log's folder.
     model:
         ``provider:model``, e.g. ``"openai:<model>"`` or ``"ollama:llama3.1:8b"``.
         ``None`` uses ``MAVPOSE_MODEL`` or the provider whose API key is set
@@ -195,13 +203,22 @@ class PlotCreator:
         script_timeout: int = 60,
         model: Optional[str] = None,
         mode: str = "spec",
-        dpi: int = 150,
+        dpi: Optional[int] = None,
+        fmt: str = "png",
+        output_dir: Optional[str] = None,
     ) -> None:
         if mode not in MODES:
             raise ValueError(f"mode must be one of {MODES}, not {mode!r}")
+        fmt = fmt.lower().lstrip(".")
+        if fmt not in FORMATS:
+            raise ValueError(f"fmt must be one of {FORMATS}, not {fmt!r}")
+        if dpi is not None and (isinstance(dpi, bool) or not isinstance(dpi, int) or dpi <= 0):
+            raise ValueError(f"dpi must be a positive whole number, not {dpi!r}")
         self.model_config: ModelConfig = _load_model_config(model)
         self.mode: str = mode
-        self.dpi: int = dpi
+        self.dpi: int = dpi if dpi is not None else DEFAULT_DPI[mode]
+        self.fmt: str = fmt
+        self.output_dir: Optional[str] = output_dir
 
         self.logfile_name: str = ""
         self.script_path: str = ""
@@ -227,7 +244,7 @@ class PlotCreator:
         plot_prompt = PromptTemplate(
             input_variables=[
                 "schema", "history", "human_input",
-                "parquet_file", "output_file",
+                "parquet_file", "output_file", "dpi",
             ],
             template=(
                 "You are an expert data-visualisation engineer.\n"
@@ -244,7 +261,7 @@ class PlotCreator:
                 "- Each column's unit is given in the schema. Values are already\n"
                 "  in that unit: do not rescale them. Put units in axis labels.\n"
                 "- Plot each independent variable over time_s on its own axis or subplot.\n"
-                "- Save the figure to '{output_file}' at dpi=400. Do NOT call plt.show().\n"
+                "- Save the figure to '{output_file}' at dpi={dpi}. Do NOT call plt.show().\n"
                 "- Return ONLY the script inside a markdown ```python``` block.\n"
                 "- Do NOT import pymavlink, subprocess, os, sys, or socket.\n\n"
                 "Available data schema (msg_type → columns with dtype and range):\n"
@@ -355,9 +372,12 @@ class PlotCreator:
     # Configuration
     # ------------------------------------------------------------------
 
-    def set_logfile_name(self, filename: str) -> None:
+    def set_logfile_name(self, filename: str, output_dir: Optional[str] = None) -> None:
         """
         Validate *filename* and register it as the active log file.
+
+        Outputs go to *output_dir*, else the ``output_dir`` given to the
+        constructor, else the log's folder.  The folder is created if needed.
 
         Raises
         ------
@@ -367,10 +387,13 @@ class PlotCreator:
             (a ValueError) bad extension, symlink, empty, or too large.
         """
         validate_mavlink_file(filename)
-        base_dir = os.path.dirname(os.path.abspath(filename))
+        base_dir = os.path.abspath(
+            output_dir or self.output_dir or os.path.dirname(os.path.abspath(filename))
+        )
+        os.makedirs(base_dir, exist_ok=True)
         self.logfile_name = filename
         self.script_path = os.path.join(base_dir, "plot.py")
-        self.plot_path = os.path.join(base_dir, "plot.png")
+        self.plot_path = os.path.join(base_dir, f"plot.{self.fmt}")
         self.parquet_path = os.path.join(base_dir, "telemetry.parquet")
         self.spec_path = os.path.join(base_dir, "plot.json")
         self._extractor = LogExtractor(filename)
@@ -554,6 +577,7 @@ class PlotCreator:
             "parquet_file": self.parquet_path,
             "human_input": human_input,
             "output_file": self.plot_path,
+            "dpi": self.dpi,
         })
         logger.debug("LLM plot response:\n%s", response)
         code = self.extract_code_snippets(response)
@@ -644,7 +668,7 @@ class PlotCreator:
                 success = False
                 output = (
                     f"The script ran without errors but did not save the figure to "
-                    f"{self.plot_path!r}. It must call plt.savefig({self.plot_path!r}, dpi=400)."
+                    f"{self.plot_path!r}. It must call plt.savefig({self.plot_path!r}, dpi={self.dpi})."
                     + (f"\n\nScript output:\n{output}" if output.strip() else "")
                 )
             if success:

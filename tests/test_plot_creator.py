@@ -555,3 +555,147 @@ class TestRunResult:
         import mavpose.chat
 
         assert mavpose.chat.RunResult is RunResult
+
+
+class TestOutputOptions:
+    """#11, #12: output folder, file format and resolution."""
+
+    def _png_width(self, path):
+        import struct
+        with open(path, "rb") as fh:
+            head = fh.read(24)
+        assert head[:8] == b"\x89PNG\r\n\x1a\n"
+        return struct.unpack(">I", head[16:20])[0]
+
+    def test_defaults(self, clean_env):
+        clean_env.setenv("OPENROUTER_API_KEY", "k")
+        spec, code = PlotCreator(), PlotCreator(mode="code")
+        assert (spec.dpi, spec.fmt, code.dpi) == (150, "png", 400)
+
+    @pytest.mark.parametrize("kw", [{"fmt": "jpg"}, {"dpi": 0}, {"dpi": -5},
+                                    {"dpi": "high"}, {"dpi": True}])
+    def test_bad_values(self, clean_env, kw):
+        clean_env.setenv("OPENROUTER_API_KEY", "k")
+        with pytest.raises(ValueError):
+            PlotCreator(**kw)
+
+    def test_output_dir_is_created_and_used(self, clean_env, tmp_path):
+        from tests.log_builders import build_tlog
+
+        clean_env.setenv("OPENROUTER_API_KEY", "k")
+        log = build_tlog(tmp_path / "f.tlog")
+        out = tmp_path / "results" / "today"
+        c = PlotCreator(output_dir=str(out), fmt="svg")
+        c.set_logfile_name(str(log))
+        assert out.is_dir()
+        assert c.plot_path == str(out / "plot.svg")
+        assert c.spec_path == str(out / "plot.json")
+        assert c.parquet_path == str(out / "telemetry.parquet")
+        assert c.script_path == str(out / "plot.py")
+
+    def test_set_logfile_name_can_override_the_folder(self, creator, tmp_path):
+        from tests.log_builders import build_tlog
+
+        creator.set_logfile_name(str(build_tlog(tmp_path / "f.tlog")),
+                                 output_dir=str(tmp_path / "other"))
+        assert creator.plot_path == str(tmp_path / "other" / "plot.png")
+
+    def test_spec_mode_writes_svg(self, clean_env, tmp_path):
+        clean_env.setenv("OPENROUTER_API_KEY", "k")
+        c = PlotCreator(fmt="svg", output_dir=str(tmp_path / "out"))
+        schema = TestSpecMode()._ready(c, tmp_path, [TestSpecMode.GOOD])
+        assert c.plot_from_spec("plot altitude", schema)
+        assert (tmp_path / "out" / "plot.svg").read_text()[:200].find("<svg") >= 0
+        assert (tmp_path / "out" / "plot.json").exists()
+
+    def test_spec_mode_dpi_sets_image_size(self, clean_env, tmp_path):
+        clean_env.setenv("OPENROUTER_API_KEY", "k")
+        widths = []
+        for dpi in (50, 100):
+            c = PlotCreator(dpi=dpi, output_dir=str(tmp_path / f"d{dpi}"))
+            schema = TestSpecMode()._ready(c, tmp_path, [TestSpecMode.GOOD])
+            c.plot_from_spec("plot altitude", schema)
+            widths.append(self._png_width(c.plot_path))
+        assert widths[1] == pytest.approx(2 * widths[0], abs=2)
+
+    def test_code_mode_prompt_gets_dpi_and_output_path(self, clean_env, tmp_path):
+        from unittest.mock import MagicMock
+
+        from tests.log_builders import build_tlog
+
+        clean_env.setenv("OPENROUTER_API_KEY", "k")
+        c = PlotCreator(mode="code", dpi=72, fmt="svg", output_dir=str(tmp_path / "o"))
+        c.set_logfile_name(str(build_tlog(tmp_path / "f.tlog")))
+        c._plot_chain = MagicMock()
+        c._plot_chain.invoke.return_value = "```python\npass\n```"
+        c.create_plot("plot altitude", {})
+        sent = c._plot_chain.invoke.call_args[0][0]
+        assert sent["dpi"] == 72
+        assert sent["output_file"] == str(tmp_path / "o" / "plot.svg")
+
+    def test_code_mode_missing_figure_message_uses_chosen_dpi(self, clean_env, tmp_path):
+        from tests.log_builders import build_tlog
+
+        clean_env.setenv("OPENROUTER_API_KEY", "k")
+        c = PlotCreator(mode="code", dpi=72, max_retries=1, output_dir=str(tmp_path / "o"))
+        c.set_logfile_name(str(build_tlog(tmp_path / "f.tlog")))
+        with open(c.script_path, "w", encoding="utf-8") as fh:
+            fh.write("x = 1\n")
+        result = c.run_script()
+        assert "dpi=72" in result.error and "plot.png" in result.error
+
+    def test_code_mode_script_may_write_to_the_output_dir(self, clean_env, tmp_path):
+        from tests.log_builders import build_tlog
+
+        clean_env.setenv("OPENROUTER_API_KEY", "k")
+        c = PlotCreator(mode="code", max_retries=1, output_dir=str(tmp_path / "o"))
+        c.set_logfile_name(str(build_tlog(tmp_path / "f.tlog")))
+        with open(c.script_path, "w", encoding="utf-8") as fh:
+            fh.write(f"open({c.plot_path!r}, 'wb').write(b'png')\n")
+        assert c.run_script().success
+
+    def test_cli_flags_reach_the_creator(self, clean_env, tmp_path):
+        from mavpose.chat import cli
+        import mavpose.chat.plot_creator as pc
+
+        clean_env.setenv("OPENROUTER_API_KEY", "k")
+        seen = {}
+
+        class Spy(pc.PlotCreator):
+            def __init__(self, **kw):
+                seen.update(kw)
+                super().__init__(**kw)
+
+        clean_env.setattr(pc, "PlotCreator", Spy)
+        clean_env.setattr(sys, "argv", ["mavpose", str(tmp_path / "nope.tlog"),
+                                        "--out-dir", "res", "--format", "svg", "--dpi", "90"])
+        with pytest.raises(SystemExit):
+            cli.main()
+        assert (seen["output_dir"], seen["fmt"], seen["dpi"]) == ("res", "svg", 90)
+
+    @pytest.mark.parametrize("bad", ["0", "-3", "lots"])
+    def test_cli_rejects_bad_dpi(self, clean_env, capsys, bad):
+        from mavpose.chat import cli
+
+        clean_env.setattr(sys, "argv", ["mavpose", "f.tlog", "--dpi", bad])
+        with pytest.raises(SystemExit) as exc:
+            cli.main()
+        assert exc.value.code == 2
+
+    def test_redraw_honours_folder_format_and_dpi(self, clean_env, tmp_path):
+        from mavpose.chat import cli
+        from tests.log_builders import build_tlog
+
+        log = build_tlog(tmp_path / "f.tlog")
+        spec = tmp_path / "plot.json"
+        spec.write_text(TestSpecMode.GOOD)
+        out = tmp_path / "redraws"
+        clean_env.setattr(sys, "argv", ["mavpose", str(log), "--spec", str(spec),
+                                        "--out-dir", str(out), "--format", "svg"])
+        with pytest.raises(SystemExit) as exc:
+            cli.main()
+        assert exc.value.code == 0
+        assert "<svg" in (out / "plot.svg").read_text()[:300]
+        assert not (tmp_path / "plot.png").exists()
+        assert cli.redraw_spec(str(log), str(spec), out_dir=str(tmp_path / "p"), dpi=50)
+        assert self._png_width(tmp_path / "p" / "plot.png") == 500   # 10 in x 50 dpi
