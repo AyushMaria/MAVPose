@@ -59,6 +59,16 @@ pip install -e ".[docs]" && mkdocs build --strict   # only if you changed docs/
 CI also runs the tests on Python 3.10–3.13 and in a core-only install
 (`pip install -e .`), where the chat and MCP tests skip themselves.
 
+To run the lint checks automatically before every commit, install the
+pre-commit hooks once:
+
+```bash
+pre-commit install
+```
+
+They run `ruff check` and fix trailing whitespace and missing final
+newlines. Run them on everything with `pre-commit run --all-files`.
+
 ## How the code is organised
 
 | Path | What it is |

@@ -1,0 +1,16 @@
+# Run the same lint checks as CI before each commit:
+#   pip install -e ".[dev]" && pre-commit install
+# The rules live in pyproject.toml under [tool.ruff.lint].
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.17.1
+    hooks:
+      - id: ruff-check
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]   # keep Markdown's two-space line breaks
+      - id: check-yaml
+      - id: check-toml
