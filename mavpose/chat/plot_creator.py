@@ -5,18 +5,20 @@ Core MAVPose logic — two-phase pipeline:
 
   Phase 1 — Extraction (headless DB query)
   -----------------------------------------
-  parse_mavlink_log()    : schema-only scan → builds ChromaDB embeddings
+  parse_mavlink_log()    : schema-only scan: message types, fields, row counts
   extract_dataframes()   : full extraction of relevant message types
                            → exports a clean Parquet file
 
   Phase 2 — LLM plot generation
   -----------------------------------------
-  find_relevant_data_types() : semantic search → relevant msg-type schema
+  find_relevant_data_types() : the model picks the message types it needs
   create_plot()              : LLM writes pandas+matplotlib script
                                against the Parquet file
   run_script()               : executes script; self-heals on failure
 
-The LLM never touches raw binary data.  It receives:
+The model works with any provider (see mavpose.chat.llm) and never touches
+raw binary data.  It receives:
+  - The log's list of message types and field names
   - The path of a clean .parquet file
   - Exact column names, dtypes, and value ranges per message type
   - The output path for the .png
@@ -28,7 +30,6 @@ import json
 import logging
 import os
 import re
-import uuid
 from typing import Dict, List, Optional
 
 from mavpose.chat._deps import require_chat_deps
@@ -36,48 +37,66 @@ from mavpose.chat._deps import require_chat_deps
 require_chat_deps()  # friendly error if the [chat] extra is missing
 
 from dotenv import find_dotenv, load_dotenv  # noqa: E402
-from langchain_chroma import Chroma  # noqa: E402
 from langchain_core.output_parsers import StrOutputParser  # noqa: E402
 from langchain_core.prompts import PromptTemplate  # noqa: E402
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings  # noqa: E402
 
+from mavpose.chat.llm import (  # noqa: E402
+    MissingAPIKeyError,
+    ModelConfig,
+    ModelConfigError,
+    build_chat_model,
+    resolve_model,
+)
 from mavpose.chat.safe_executor import execute_script  # noqa: E402
 from mavpose.file_validator import VALID_EXTENSIONS, validate_mavlink_file  # noqa: E402
 from mavpose.log_extractor import LogExtractor  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["PlotCreator", "MissingAPIKeyError", "VALID_EXTENSIONS"]
+__all__ = ["PlotCreator", "MissingAPIKeyError", "ModelConfigError", "VALID_EXTENSIONS"]
 
-OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-DEFAULT_MODEL = "z-ai/glm-5.1"
-EMBEDDING_MODEL = "openai/text-embedding-3-small"
-
-
-class MissingAPIKeyError(RuntimeError):
-    """``OPENROUTER_API_KEY`` is not set (or is empty)."""
-
-    def __init__(self) -> None:
-        super().__init__(
-            "OPENROUTER_API_KEY is not set.\n"
-            "Get a key at https://openrouter.ai/keys, then either:\n"
-            "  - create a file named .env in the folder you run mavpose from, containing\n"
-            "      OPENROUTER_API_KEY=your-key-here\n"
-            "  - or set it in your shell:  export OPENROUTER_API_KEY=your-key-here"
-            "  (Windows: set OPENROUTER_API_KEY=your-key-here)"
-        )
+# Above this size the message-type catalogue lists names only, so it still
+# fits small (e.g. local) models' context windows.
+MAX_CATALOG_CHARS = 24_000
 
 
-def _load_api_key() -> str:
-    """Read the OpenRouter key from the environment or a .env file in the working folder."""
+def _load_model_config(model: Optional[str]) -> ModelConfig:
+    """Resolve the model from *model*, the environment and a .env file."""
     # usecwd=True: search from where the user runs the command.  Without it,
     # python-dotenv searches upward from this installed module's folder and
     # never finds the user's .env.
     load_dotenv(find_dotenv(usecwd=True))
-    key = os.environ.get("OPENROUTER_API_KEY", "").strip()
-    if not key:
-        raise MissingAPIKeyError()
-    return key
+    return resolve_model(model)
+
+
+def _catalog(message_types: Dict[str, dict]) -> str:
+    """The log's message types (and their fields, if that fits) for the model."""
+    full = "\n".join(
+        f"{mt} ({info.get('count', 0)} rows): {', '.join(info.get('fields', {}))}"
+        for mt, info in sorted(message_types.items())
+    )
+    if len(full) <= MAX_CATALOG_CHARS:
+        return full
+    return "\n".join(
+        f"{mt} ({info.get('count', 0)} rows)" for mt, info in sorted(message_types.items())
+    )
+
+
+def _parse_type_list(response: str, known: List[str]) -> List[str]:
+    """Pull the message-type names out of the model's reply, keeping only real ones."""
+    match = re.search(r"\[.*?\]", response, re.DOTALL)
+    names: List[str] = []
+    if match:
+        try:
+            parsed = json.loads(match.group(0))
+            names = [str(n) for n in parsed if isinstance(n, (str, int))]
+        except json.JSONDecodeError:
+            names = []
+    if not names:  # fall back to any known name mentioned in the text
+        names = [mt for mt in known if re.search(rf"\b{re.escape(mt)}\b", response)]
+    by_lower = {mt.lower(): mt for mt in known}
+    chosen = [by_lower[n.strip().lower()] for n in names if n.strip().lower() in by_lower]
+    return list(dict.fromkeys(chosen))
 
 
 class PlotCreator:
@@ -88,16 +107,30 @@ class PlotCreator:
     ----------
     max_retries:
         Number of self-healing retries when the generated script fails.
+    script_timeout:
+        Seconds a generated script may run.
+    model:
+        ``provider:model``, e.g. ``"openai:<model>"`` or ``"ollama:llama3.1:8b"``.
+        ``None`` uses ``MAVPOSE_MODEL`` or the provider whose API key is set
+        (see :mod:`mavpose.chat.llm`).  Settings are also read from a ``.env``
+        file in the current folder or a parent folder.
 
     Raises
     ------
     MissingAPIKeyError
-        ``OPENROUTER_API_KEY`` is not set in the environment or in a ``.env``
-        file in the current folder (or a parent folder).
+        No API key for the chosen provider, or no provider configured.
+    ModelConfigError
+        The model setting is incomplete or invalid (``MissingAPIKeyError`` is
+        a subclass).
     """
 
-    def __init__(self, max_retries: int = 3, script_timeout: int = 60) -> None:
-        api_key = _load_api_key()
+    def __init__(
+        self,
+        max_retries: int = 3,
+        script_timeout: int = 60,
+        model: Optional[str] = None,
+    ) -> None:
+        self.model_config: ModelConfig = _load_model_config(model)
 
         self.logfile_name: str = ""
         self.script_path: str = ""
@@ -106,21 +139,13 @@ class PlotCreator:
         self.last_code: str = ""
         self.last_success: bool = False  # did the last run_script() produce a plot?
         self.message_types: dict = {}   # schema metadata from schema_only()
-        self.db: Optional[Chroma] = None
         self.max_retries: int = max_retries
         self.script_timeout: int = script_timeout
         self._extractor: Optional[LogExtractor] = None
-        self._api_key: str = api_key
 
-        self.model: str = os.getenv("OPENROUTER_MODEL", DEFAULT_MODEL)
+        self.model: str = str(self.model_config)   # "provider:model", for display
 
-        llm = ChatOpenAI(
-            model_name=self.model,
-            max_tokens=2000,
-            temperature=0,
-            openai_api_key=api_key,
-            openai_api_base=OPENROUTER_BASE_URL,
-        )
+        llm = build_chat_model(self.model_config, max_tokens=2000)
 
         # ------------------------------------------------------------------
         # Plot-generation prompt
@@ -173,14 +198,28 @@ class PlotCreator:
                 " markdown ```python``` block."
             ),
         )
-        fix_llm = ChatOpenAI(
-            model_name=self.model,
-            max_tokens=8000,
-            temperature=0,
-            openai_api_key=api_key,
-            openai_api_base=OPENROUTER_BASE_URL,
-        )
+        fix_llm = build_chat_model(self.model_config, max_tokens=8000)
         self._fix_chain = fix_prompt | fix_llm | StrOutputParser()
+
+        # ------------------------------------------------------------------
+        # Message-type selection: the model reads the log's catalogue of
+        # message types and picks the ones the request needs.
+        # ------------------------------------------------------------------
+        select_prompt = PromptTemplate(
+            input_variables=["catalog", "human_input"],
+            template=(
+                "A drone flight log contains these message types "
+                "(name, row count, and fields):\n\n{catalog}\n\n"
+                "Which message types are needed to answer this request?\n"
+                "Request: {human_input}\n\n"
+                "Choose every type needed (for example, both GPS and barometer types "
+                "for a GPS-vs-baro comparison), but no unrelated ones. Reply with only "
+                "a JSON array of exact names from the list, e.g. [\"ATTITUDE\", \"VFR_HUD\"]."
+            ),
+        )
+        self._select_chain = select_prompt | build_chat_model(
+            self.model_config, max_tokens=500
+        ) | StrOutputParser()
 
     # ------------------------------------------------------------------
     # Static helpers
@@ -225,13 +264,13 @@ class PlotCreator:
         self._extractor = LogExtractor(filename)
 
     # ------------------------------------------------------------------
-    # Phase 1a — schema scan + embeddings
+    # Phase 1a — schema scan
     # ------------------------------------------------------------------
 
     def parse_mavlink_log(self) -> str:
         """
-        Schema-only scan: collect message-type metadata and build the
-        ChromaDB vector index used for semantic field search.
+        Schema-only scan: collect the message types, their fields and row
+        counts.  :meth:`find_relevant_data_types` shows this to the model.
 
         Returns
         -------
@@ -241,7 +280,6 @@ class PlotCreator:
             raise RuntimeError("No log file set. Call set_logfile_name() first.")
 
         self.message_types = self._extractor.schema_only()
-        self._create_embeddings(self.message_types)
         return json.dumps(self.message_types, indent=4)
 
     # ------------------------------------------------------------------
@@ -279,62 +317,40 @@ class PlotCreator:
         return schema_summary
 
     # ------------------------------------------------------------------
-    # Embeddings
-    # ------------------------------------------------------------------
-
-    def _create_embeddings(self, message_types: dict) -> None:
-        """
-        Embed each message type into an in-memory ChromaDB collection
-        using OpenRouter's OpenAI-compatible embeddings endpoint.
-
-        Each call gets its own collection, so message types from different
-        logs (or an earlier parse of the same log) never mix.  Nothing is
-        written to disk.
-        """
-        texts = [json.dumps({mt: message_types[mt]}) for mt in message_types]
-        logger.info("Creating embeddings for %d message types.", len(texts))
-
-        embeddings = OpenAIEmbeddings(
-            model=EMBEDDING_MODEL,
-            openai_api_key=self._api_key,
-            openai_api_base=OPENROUTER_BASE_URL,
-        )
-        if self.db is not None:
-            try:
-                self.db.delete_collection()
-            except Exception as exc:  # best effort: the old index is unused anyway
-                logger.debug("Could not delete previous collection: %s", exc)
-        self.db = Chroma.from_texts(
-            texts,
-            embeddings,
-            collection_name=f"mavpose-{uuid.uuid4().hex}",
-        )
-
-    # ------------------------------------------------------------------
-    # Semantic search
+    # Choosing message types
     # ------------------------------------------------------------------
 
     def find_relevant_data_types(self, human_input: str) -> List[str]:
         """
-        Semantic similarity search against the ChromaDB vector store.
+        Ask the model which of the log's message types the request needs.
 
         Returns
         -------
-        List of MAVLink message type names most relevant to *human_input*.
+        Message type names, all present in the log.
+
+        Raises
+        ------
+        RuntimeError
+            :meth:`parse_mavlink_log` has not been called.
+        ValueError
+            The model did not name any message type in the log.
         """
-        if self.db is None:
-            raise RuntimeError("Vector store not initialised. Call parse_mavlink_log() first.")
-        docs = self.db.similarity_search(human_input)
-        # Each document was stored as JSON of a single message type dict;
-        # parse back to extract the type name.
-        types: List[str] = []
-        for doc in docs:
-            try:
-                obj = json.loads(doc.page_content)
-                types.extend(obj.keys())
-            except (json.JSONDecodeError, AttributeError):
-                pass
-        return list(dict.fromkeys(types))  # deduplicate, preserve order
+        if not self.message_types:
+            raise RuntimeError("No log schema. Call parse_mavlink_log() first.")
+        known = list(self.message_types)
+        response = self._select_chain.invoke({
+            "catalog": _catalog(self.message_types),
+            "human_input": human_input,
+        })
+        logger.debug("Message-type selection response:\n%s", response)
+        chosen = _parse_type_list(response, known)
+        if not chosen:
+            raise ValueError(
+                "Couldn't tell which message types this request needs. Try naming "
+                "the data more specifically (e.g. 'battery voltage', 'GPS altitude'), "
+                "or run with --verbose to see the model's answer."
+            )
+        return chosen
 
     # ------------------------------------------------------------------
     # Phase 2 — LLM plot generation

@@ -55,10 +55,9 @@ $ mavpose flight.tlog --prompt "Plot altitude over time"
 │                                                             │
 │  LogExtractor.schema_only()                                 │
 │    └─ pymavlink fast scan → {msg_type: {fields, count}}     │
-│    └─ ChromaDB embeddings (semantic field search)           │
 │                                                             │
 │  find_relevant_data_types(prompt)                           │
-│    └─ vector similarity → ["GLOBAL_POSITION_INT", ...]      │
+│    └─ the model picks from the log's message types        │
 │                                                             │
 │  LogExtractor.extract_all()  ←  full row materialisation    │
 │    └─ per-msg-type DataFrames, time_s column, cast numerics │
@@ -101,12 +100,11 @@ $ mavpose flight.tlog --prompt "Plot altitude over time"
   - **unknown values removed** — "not provided" markers (MAVLink `current_battery = -1`, `eph = UINT16_MAX`; PX4 `battery_status.current_a = -1`, …) become NaN instead of fake readings, using the `invalid` markers from the official MAVLink and PX4 definitions; counts appear in `extractor.unknown_counts` and the LLM schema. Pass `filter_unknown=False` to keep them
   - **corruption-tolerant** — bad packets are skipped and counted (`extractor.stats`) instead of silently ending the parse
 - **Clean Parquet handoff** — only the relevant message types are exported; the LLM sees exact column names, dtypes, min/max ranges — no binary guesswork
-- **Semantic field search** — ChromaDB vector embeddings surface the most relevant message types for your query
+- **Any AI provider** — OpenAI, Anthropic, Gemini, OpenRouter, Groq, DeepSeek, Mistral, Together, local Ollama / LM Studio, or any OpenAI-compatible server
+- **Smart message selection** — the model picks the message types it needs from the log's own list
 - **Self-healing scripts** — LLM debugs and rewrites failing scripts up to N times; fix prompt also includes the full schema
 - **Restricted execution** — generated code runs in a clean subprocess (no API keys in its environment) under a PEP 578 audit hook that blocks process spawning, network access and file writes outside the output folder, with CPU/memory limits and a timeout. This is defence in depth, not a hard security boundary: for untrusted logs or prompts, also run MAVPose in a container
 - **Interactive REPL mode** — omit `--prompt` to enter a live loop; Parquet is re-extracted per query with the relevant types
-- **Configurable model** — drop in any OpenRouter model with a one-line `.env` change
-- **Persisted vector store** — ChromaDB is saved to disk; re-running on the same log skips re-embedding
 - **CI-tested** — lint (ruff) and pytest run on every push
 
 ---
@@ -115,10 +113,8 @@ $ mavpose flight.tlog --prompt "Plot altitude over time"
 
 | Layer | Library / Service |
 |---|---|
-| LLM | [OpenRouter](https://openrouter.ai) → Z.ai GLM-5.1 (default) |
-| Embeddings | OpenRouter → `openai/text-embedding-3-small` |
-| LLM framework | LangChain (LCEL) — `langchain-openai`, `langchain-chroma` |
-| Vector store | ChromaDB ≥ 0.5 (in memory, one index per log) |
+| LLM | Any provider: OpenAI, Anthropic, Gemini, OpenRouter, Groq, DeepSeek, Mistral, Together, Ollama, LM Studio, OpenAI-compatible |
+| LLM framework | LangChain (LCEL) — `langchain-openai`, `langchain-anthropic` |
 | Extraction layer | pandas ≥ 2.0 + pyarrow ≥ 14.0 |
 | Drone log parsing | pymavlink ≥ 2.4.48 |
 | Plotting | matplotlib ≥ 3.8 (in generated script) |
@@ -131,7 +127,7 @@ $ mavpose flight.tlog --prompt "Plot altitude over time"
 ## Prerequisites
 
 - **Python 3.10+**
-- For the chat assistant only: an **OpenRouter API key** — [get one here](https://openrouter.ai/keys) (free tier available)
+- For the chat assistant only: an API key for any [supported AI provider](#choosing-an-ai-provider), or a local model server (Ollama, LM Studio)
 
 ---
 
@@ -142,7 +138,7 @@ MAVPose has two layers. Install only what you need:
 | You want… | Install | Footprint |
 |---|---|---|
 | Clean, unit-correct telemetry in pandas / Parquet (no AI) — ArduPilot and PX4 logs | `pip install mavpose` | 10 packages |
-| …plus the plain-English plot assistant (`mavpose` command) | `pip install "mavpose[chat]"` | ~114 packages |
+| …plus the plain-English plot assistant (`mavpose` command) | `pip install "mavpose[chat]"` | ~60 packages |
 | …or an MCP server so AI agents can read your logs (`mavpose-mcp`) | `pip install "mavpose[mcp]"` | 38 packages |
 
 The core never imports the chat layer, so `pip install mavpose` has no LLM, vector-store or plotting dependencies.
@@ -161,8 +157,8 @@ cp template.env .env          # chat assistant only
 Open `.env` and fill in your key. If you installed from PyPI, there's no `template.env`: just create a file named `.env` in the folder you'll run `mavpose` from (MAVPose looks there and in parent folders), or set the variables in your shell.
 
 ```env
-OPENROUTER_API_KEY=your-key-here
-OPENROUTER_MODEL=z-ai/glm-5.1   # default — change to any OpenRouter model
+OPENAI_API_KEY=your-key-here          # or ANTHROPIC_API_KEY, GEMINI_API_KEY, OPENROUTER_API_KEY, ...
+MAVPOSE_MODEL=openai:<model>          # provider:model; see "Choosing an AI provider"
 ```
 
 > ⚠️ Never commit `.env` — it is already listed in `.gitignore`.
@@ -194,13 +190,15 @@ mavpose flight.tlog
 ### All CLI flags
 
 ```
-usage: mavpose [-h] [--prompt PROMPT] [--retries N] [--verbose] log_file
+usage: mavpose [-h] [--prompt PROMPT] [--model PROVIDER:MODEL] [--retries N] [--verbose] log_file
 
 positional arguments:
   log_file              Path to a flight log: MAVLink .tlog, ArduPilot .bin/.log, or PX4 .ulg
 
 options:
   -p, --prompt TEXT     Plot request. Omit for interactive mode.
+  -m, --model P:M       Model as provider:model, e.g. openai:<model>, ollama:llama3.1:8b
+                        (default: MAVPOSE_MODEL, or the provider whose key is set)
   -r, --retries N       Max self-healing retries on script failure (default: 3)
   -v, --verbose         Enable debug logging
 ```
@@ -222,20 +220,21 @@ The output plot is saved as `plot.png`, and intermediate telemetry as `telemetry
 
 ---
 
-## Switching Models
+## Choosing an AI provider
 
-MAVPose routes through [OpenRouter](https://openrouter.ai/models), so any model on the platform works. Just update `.env`:
+The plot assistant works with any of these. Set the provider's key, then name the model as `provider:model` with `--model` or `MAVPOSE_MODEL`:
 
-```env
-# Z.ai options
-OPENROUTER_MODEL=z-ai/glm-5.1          # default — long-horizon agentic coding
-OPENROUTER_MODEL=z-ai/glm-5            # flagship, complex systems
-OPENROUTER_MODEL=z-ai/glm-5-turbo      # fast inference
-OPENROUTER_MODEL=z-ai/glm-4.5          # MoE, 355B params, switchable reasoning
+| Provider | Key variable | Example |
+|---|---|---|
+| OpenAI | `OPENAI_API_KEY` | `--model openai:<model>` |
+| Anthropic | `ANTHROPIC_API_KEY` | `--model anthropic:<model>` |
+| Google Gemini | `GEMINI_API_KEY` | `--model gemini:<model>` |
+| OpenRouter | `OPENROUTER_API_KEY` | `--model openrouter:z-ai/glm-5.1` (model optional) |
+| Groq / DeepSeek / Mistral / Together | `GROQ_API_KEY` / `DEEPSEEK_API_KEY` / `MISTRAL_API_KEY` / `TOGETHER_API_KEY` | `--model groq:<model>` |
+| Ollama / LM Studio (local) | none | `--model ollama:llama3.1:8b` |
+| Any OpenAI-compatible server | `MAVPOSE_API_KEY` (if needed) | `MAVPOSE_BASE_URL=http://host:8000/v1` and `--model openai-compatible:<model>` |
 
-# OpenAI fallback
-OPENROUTER_MODEL=openai/gpt-4o
-```
+Existing setups with only `OPENROUTER_API_KEY` (and optionally `OPENROUTER_MODEL`) keep working as before. If exactly one provider key is set, a bare `--model <model>` is enough. Details: [Plot assistant guide](docs/guide/chat.md#choosing-an-ai-provider).
 
 ---
 
@@ -254,6 +253,7 @@ MAVPose/
 │   │   └── px4_fields.json                # units + markers from PX4 msg definitions
 │   └── chat/                      # pip install "mavpose[chat]" — plot assistant
 │       ├── plot_creator.py        # PlotCreator: LLM writes the plot script
+│       ├── llm.py                 # Choosing the AI provider and model
 │       ├── safe_executor.py       # Restricted subprocess executor (audit hook + limits)
 │       └── cli.py                 # `mavpose` command
 ├── docs/                          # guide, format notes, API reference (MkDocs)
@@ -318,13 +318,13 @@ sample. See [docs/guide/mcp.md](docs/guide/mcp.md) for client setup.
 ```python
 from mavpose.chat import PlotCreator   # needs mavpose[chat]
 
-creator = PlotCreator(max_retries=3)
+creator = PlotCreator(max_retries=3, model="openai:<model>")   # or None: MAVPOSE_MODEL / detected key
 creator.set_logfile_name("flight.tlog")
 
-# Phase 1a: schema scan + embeddings
+# Phase 1a: schema scan
 creator.parse_mavlink_log()
 
-# Phase 1b: semantic search + Parquet extraction
+# Phase 1b: the model picks message types; Parquet extraction
 msg_types = creator.find_relevant_data_types("Plot altitude over time")
 schema_summary = creator.extract_dataframes(msg_types)
 
@@ -356,14 +356,14 @@ In a core-only install (`pip install -e .`), the chat tests skip themselves.
 
 | Issue | Cause | Fix |
 |---|---|---|
-| `OPENROUTER_API_KEY is not set` | No key in the shell or in a `.env` file | Create `.env` in the folder you run `mavpose` from with `OPENROUTER_API_KEY=your-key`, or export the variable |
+| `No AI provider is configured` / `..._API_KEY is not set` | No key in the shell or in a `.env` file | Set your provider's key (e.g. `OPENAI_API_KEY`) in `.env` in the folder you run `mavpose` from, or export it |
+| `Choose which ... model to use` | Key found, but no model named | Add `--model provider:<model>` or `MAVPOSE_MODEL=provider:<model>` |
 | `ModuleNotFoundError: pandas` | Missing dependency | Run `pip install mavpose` |
 | `ModuleNotFoundError: pyarrow` | Missing dependency | Run `pip install mavpose` |
 | "The MAVPose chat assistant needs extra packages" | Core-only install | Run `pip install "mavpose[chat]"` |
 | Plot not generated after N retries | LLM script failed repeatedly | Try a more specific prompt; use `--verbose` to inspect errors |
 | `FileValidationError` | Wrong file type or empty file | Only `.tlog`, `.bin`, `.log` and `.ulg` files ≤ 200 MB are accepted |
-| `ValueError: None of the requested message types were found` | Semantic search returned types not in log | Use `--verbose` to see what types the log actually contains |
-| ChromaDB version conflict | Stale venv | Delete `venv/` and reinstall with `pip install "mavpose[chat]"` |
+| `Couldn't tell which message types this request needs` | The model didn't name any message type in the log | Name the data more specifically; use `--verbose` to see the model's answer |
 
 ---
 

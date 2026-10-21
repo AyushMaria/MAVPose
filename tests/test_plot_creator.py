@@ -6,7 +6,6 @@ The LLM chains are never invoked; ChatOpenAI is constructed but makes no
 network calls until used.
 """
 
-import json
 import os
 import sys
 from unittest.mock import patch
@@ -20,9 +19,26 @@ pytest.importorskip("langchain_openai", reason="needs the [chat] extra")
 from mavpose.chat.plot_creator import MissingAPIKeyError, PlotCreator  # noqa: E402
 
 
+MODEL_VARS = ["MAVPOSE_MODEL", "MAVPOSE_API_KEY", "MAVPOSE_BASE_URL", "OPENROUTER_MODEL",
+              "OPENROUTER_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY",
+              "GOOGLE_API_KEY", "GROQ_API_KEY", "DEEPSEEK_API_KEY", "MISTRAL_API_KEY",
+              "TOGETHER_API_KEY"]
+
+
 @pytest.fixture
-def creator(monkeypatch):
-    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test-placeholder")
+def clean_env(monkeypatch, tmp_path):
+    """No provider settings from the machine running the tests, and no .env."""
+    for var in MODEL_VARS:
+        monkeypatch.delenv(var, raising=False)
+    workdir = tmp_path / "cwd"
+    workdir.mkdir()
+    monkeypatch.chdir(workdir)
+    return monkeypatch
+
+
+@pytest.fixture
+def creator(clean_env):
+    clean_env.setenv("OPENROUTER_API_KEY", "sk-test-placeholder")
     return PlotCreator(max_retries=2, script_timeout=30)
 
 
@@ -174,84 +190,106 @@ class TestUlogInChat:
 
 
 class TestApiKey:
-    """#15: a missing key gives a clear error, and .env is read from the working folder."""
+    """A missing key gives a clear error, and .env is read from the working folder."""
 
-    def test_missing_key_raises_friendly_error(self, monkeypatch, tmp_path):
-        monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
-        monkeypatch.chdir(tmp_path)
-        with pytest.raises(MissingAPIKeyError, match="OPENROUTER_API_KEY is not set"):
+    def test_no_provider_raises_friendly_error(self, clean_env):
+        with pytest.raises(MissingAPIKeyError, match="No AI provider is configured"):
             PlotCreator()
 
-    def test_empty_key_counts_as_missing(self, monkeypatch, tmp_path):
-        monkeypatch.setenv("OPENROUTER_API_KEY", "  ")
-        monkeypatch.chdir(tmp_path)
+    def test_empty_key_counts_as_missing(self, clean_env):
+        clean_env.setenv("OPENROUTER_API_KEY", "  ")
         with pytest.raises(MissingAPIKeyError):
             PlotCreator()
 
-    def test_key_is_read_from_dotenv_in_working_folder(self, monkeypatch, tmp_path):
-        monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    def test_key_is_read_from_dotenv_in_working_folder(self, clean_env, tmp_path):
         (tmp_path / ".env").write_text("OPENROUTER_API_KEY=sk-from-dotenv\n")
-        workdir = tmp_path / "logs"
-        workdir.mkdir()
-        monkeypatch.chdir(workdir)          # .env is found in a parent folder too
+        # clean_env runs us in tmp_path/cwd: .env is found in a parent folder too
         creator = PlotCreator()
-        assert creator._api_key == "sk-from-dotenv"
+        assert creator.model_config.api_key == "sk-from-dotenv"
+        assert creator.model == "openrouter:z-ai/glm-5.1"
 
-    def test_shell_variable_wins_over_dotenv(self, monkeypatch, tmp_path):
-        monkeypatch.setenv("OPENROUTER_API_KEY", "sk-from-shell")
+    def test_shell_variable_wins_over_dotenv(self, clean_env, tmp_path):
+        clean_env.setenv("OPENROUTER_API_KEY", "sk-from-shell")
         (tmp_path / ".env").write_text("OPENROUTER_API_KEY=sk-from-dotenv\n")
-        monkeypatch.chdir(tmp_path)
-        assert PlotCreator()._api_key == "sk-from-shell"
+        assert PlotCreator().model_config.api_key == "sk-from-shell"
+
+    def test_model_setting_is_read_from_dotenv(self, clean_env, tmp_path):
+        (tmp_path / ".env").write_text("ANTHROPIC_API_KEY=sk-ant\nMAVPOSE_MODEL=anthropic:test-model\n")
+        creator = PlotCreator()
+        assert creator.model == "anthropic:test-model"
+        assert type(creator._select_chain.steps[1]).__name__ == "ChatAnthropic"
+
+    def test_model_argument_wins(self, clean_env):
+        clean_env.setenv("OPENROUTER_API_KEY", "sk-or")
+        clean_env.setenv("MAVPOSE_MODEL", "openrouter:from-env")
+        assert PlotCreator(model="ollama:llama3.1:8b").model == "ollama:llama3.1:8b"
 
 
-class TestVectorStoreIsolation:
-    """#10: two logs in one folder must not share a vector index."""
+class TestMessageTypeSelection:
+    """#12: the model picks message types from the log's own list (no vector search)."""
 
-    @pytest.fixture
-    def fake_embeddings(self, monkeypatch):
-        from langchain_core.embeddings import DeterministicFakeEmbedding
-
-        import mavpose.chat.plot_creator as pc
-        monkeypatch.setattr(pc, "OpenAIEmbeddings",
-                            lambda **kw: DeterministicFakeEmbedding(size=16))
-
-    def test_two_logs_in_one_folder_keep_separate_indexes(
-        self, monkeypatch, tmp_path, fake_embeddings
-    ):
-        from tests.log_builders import build_dataflash_bin, build_tlog
-
-        monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test-placeholder")
-        tlog = build_tlog(tmp_path / "a.tlog")
-        dfl = build_dataflash_bin(tmp_path / "b.bin")
-
-        first = PlotCreator()
-        first.set_logfile_name(str(tlog))
-        first.parse_mavlink_log()
-        second = PlotCreator()
-        second.set_logfile_name(str(dfl))
-        second.parse_mavlink_log()
-
-        for creator in (first, second):
-            stored = creator.db.get()["documents"]
-            names = {name for doc in stored for name in json.loads(doc)}
-            assert names == set(creator.message_types)
-        assert not set(first.message_types) & set(second.message_types)
-        assert not (tmp_path / "chroma_db").exists()
-
-    def test_reparsing_does_not_duplicate_entries(self, monkeypatch, tmp_path, fake_embeddings):
+    def _creator_with_log(self, creator, tmp_path):
         from tests.log_builders import build_tlog
 
-        monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test-placeholder")
-        creator = PlotCreator()
         creator.set_logfile_name(str(build_tlog(tmp_path / "a.tlog")))
         creator.parse_mavlink_log()
-        old_name = creator.db._collection.name
-        creator.parse_mavlink_log()
-        assert len(creator.db.get()["documents"]) == len(creator.message_types)
-        # the previous index is dropped, not left in memory
-        names = [getattr(c, "name", c) for c in creator.db._client.list_collections()]
-        assert old_name not in names
-        assert creator.db._collection.name in names
+        return creator
+
+    def _answer(self, creator, text):
+        from unittest.mock import MagicMock
+
+        creator._select_chain = MagicMock()
+        creator._select_chain.invoke.return_value = text
+        return creator._select_chain
+
+    def test_model_sees_every_message_type_and_its_fields(self, creator, tmp_path):
+        c = self._creator_with_log(creator, tmp_path)
+        chain = self._answer(c, '["GLOBAL_POSITION_INT"]')
+        c.find_relevant_data_types("plot altitude")
+        sent = chain.invoke.call_args[0][0]
+        assert sent["human_input"] == "plot altitude"
+        for mt in c.message_types:
+            assert mt in sent["catalog"]
+        assert "relative_alt" in sent["catalog"]
+
+    def test_several_types_are_kept_in_order(self, creator, tmp_path):
+        c = self._creator_with_log(creator, tmp_path)
+        self._answer(c, 'Sure:\n```json\n["SYS_STATUS", "GLOBAL_POSITION_INT"]\n```')
+        assert c.find_relevant_data_types("battery and altitude") == [
+            "SYS_STATUS", "GLOBAL_POSITION_INT"]
+
+    def test_names_not_in_the_log_are_dropped_and_case_is_fixed(self, creator, tmp_path):
+        c = self._creator_with_log(creator, tmp_path)
+        self._answer(c, '["global_position_int", "MADE_UP", "GLOBAL_POSITION_INT"]')
+        assert c.find_relevant_data_types("x") == ["GLOBAL_POSITION_INT"]
+
+    def test_plain_text_answer_still_works(self, creator, tmp_path):
+        c = self._creator_with_log(creator, tmp_path)
+        self._answer(c, "You need SYS_STATUS for that.")
+        assert c.find_relevant_data_types("battery") == ["SYS_STATUS"]
+
+    def test_no_usable_answer_is_a_clear_error(self, creator, tmp_path):
+        c = self._creator_with_log(creator, tmp_path)
+        self._answer(c, "[]")
+        with pytest.raises(ValueError, match="Couldn't tell which message types"):
+            c.find_relevant_data_types("the weather")
+
+    def test_needs_a_parsed_log(self, creator):
+        with pytest.raises(RuntimeError, match="parse_mavlink_log"):
+            creator.find_relevant_data_types("x")
+
+    def test_large_catalog_falls_back_to_names(self, monkeypatch):
+        import mavpose.chat.plot_creator as pc
+
+        types = {f"TOPIC_{i}": {"count": 1, "fields": {f"field_{j}": "float" for j in range(50)}}
+                 for i in range(100)}
+        monkeypatch.setattr(pc, "MAX_CATALOG_CHARS", 5000)
+        text = pc._catalog(types)
+        assert "TOPIC_99" in text and "field_0" not in text
+
+    def test_no_files_written_for_the_index(self, creator, tmp_path):
+        self._creator_with_log(creator, tmp_path)
+        assert not (tmp_path / "chroma_db").exists()
 
 
 class TestCliOutcome:
@@ -283,15 +321,31 @@ class TestCliOutcome:
         assert run_once(self._creator(True), "plot it") is True
         assert "Plot saved to: /logs/plot.png" in capsys.readouterr().out
 
-    def test_missing_key_exits_cleanly(self, monkeypatch, tmp_path, capsys):
+    def test_missing_key_exits_cleanly(self, clean_env, capsys):
         from mavpose.chat import cli
 
-        monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
-        monkeypatch.chdir(tmp_path)
-        monkeypatch.setattr(sys, "argv", ["mavpose", "flight.tlog", "-p", "x"])
+        clean_env.setattr(sys, "argv", ["mavpose", "flight.tlog", "-p", "x"])
         with pytest.raises(SystemExit) as exc:
             cli.main()
         assert exc.value.code == 1
         err = capsys.readouterr().err
-        assert "OPENROUTER_API_KEY is not set" in err
+        assert "No AI provider is configured" in err
         assert "Traceback" not in err
+
+    def test_model_flag_reaches_the_creator(self, clean_env, capsys, tmp_path):
+        from mavpose.chat import cli
+
+        clean_env.setattr(sys, "argv", ["mavpose", str(tmp_path / "nope.tlog"),
+                                        "--model", "ollama:llama3.1:8b"])
+        with pytest.raises(SystemExit):
+            cli.main()      # stops at the missing log, after building the creator
+        assert "Model: ollama:llama3.1:8b" in capsys.readouterr().out
+
+    def test_bad_model_setting_exits_cleanly(self, clean_env, capsys):
+        from mavpose.chat import cli
+
+        clean_env.setattr(sys, "argv", ["mavpose", "f.tlog", "--model", "anthropc:x"])
+        with pytest.raises(SystemExit) as exc:
+            cli.main()
+        assert exc.value.code == 1
+        assert "Did you mean 'anthropic'" in capsys.readouterr().err

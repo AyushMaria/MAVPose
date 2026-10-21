@@ -24,7 +24,7 @@ ROOT = Path(__file__).resolve().parent.parent
 CHAT_DIR = ROOT / "mavpose" / "chat"
 CORE_MODULES = ["mavpose", "mavpose.log_extractor", "mavpose.file_validator",
                 "mavpose.ulog_reader"]
-CHAT_ONLY_DEPS = ["langchain_openai", "langchain_core", "langchain_chroma",
+CHAT_ONLY_DEPS = ["langchain_openai", "langchain_core", "langchain_anthropic", "langchain_chroma",
                   "chromadb", "openai", "tiktoken", "dotenv", "matplotlib",
                   "mcp"]   # mcp: the [mcp] extra, also never loaded by the core
 
@@ -128,12 +128,12 @@ class TestMissingChatExtra:
         )
 
     def test_helpful_error(self, monkeypatch):
-        self._pretend_missing(monkeypatch, "langchain_openai", "chromadb")
+        self._pretend_missing(monkeypatch, "langchain_openai", "matplotlib")
         with pytest.raises(_deps.ChatDependenciesMissing) as err:
             _deps.require_chat_deps()
         msg = str(err.value)
         assert "pip install 'mavpose[chat]'" in msg
-        assert "langchain-openai" in msg and "chromadb" in msg
+        assert "langchain-openai" in msg and "matplotlib" in msg
         assert isinstance(err.value, ImportError)
 
     def test_cli_exits_with_install_hint(self, monkeypatch, capsys, tmp_path):

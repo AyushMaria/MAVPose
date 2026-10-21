@@ -64,7 +64,7 @@ jobs:
         run: |
           python - <<'PY'
           import importlib.util, sys
-          present = [m for m in ("langchain_openai", "langchain_core", "chromadb",
+          present = [m for m in ("langchain_openai", "langchain_core", "langchain_anthropic", "chromadb",
                                  "openai", "matplotlib", "dotenv", "mcp")
                      if importlib.util.find_spec(m)]
           sys.exit(f"optional deps installed with core: {present}" if present else 0)

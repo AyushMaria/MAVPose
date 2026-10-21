@@ -8,8 +8,8 @@ Requires the optional extra:  pip install 'mavpose[chat]'.
 Two-phase pipeline
 ------------------
   Phase 1 — Extraction
-    parse_mavlink_log()   : schema scan + ChromaDB embeddings
-    find_relevant_data_types() : semantic search → message type names
+    parse_mavlink_log()   : schema scan (message types and fields)
+    find_relevant_data_types() : the model picks the message types needed
     extract_dataframes()  : full extraction → clean telemetry.parquet
 
   Phase 2 — LLM plot generation
@@ -61,6 +61,14 @@ def build_parser() -> argparse.ArgumentParser:
              "If omitted, enters interactive prompt mode.",
     )
     p.add_argument(
+        "--model", "-m",
+        default=None,
+        metavar="PROVIDER:MODEL",
+        help="Model to use, e.g. openai:<model>, anthropic:<model>, "
+             "ollama:llama3.1:8b. Default: MAVPOSE_MODEL, or the provider whose "
+             "API key is set (OpenRouter keeps working as before).",
+    )
+    p.add_argument(
         "--retries", "-r",
         type=int,
         default=3,
@@ -96,7 +104,7 @@ def _print_parquet_summary(schema_summary: dict) -> None:
 def run_once(creator: PlotCreator, prompt: str) -> bool:
     """Execute one plot request end-to-end.  Returns True if a plot was saved."""
 
-    # --- Phase 1: semantic search ---
+    # --- Phase 1: choose message types ---
     print(f"\n🔍 Finding relevant message types for: '{prompt}'")
     msg_types = creator.find_relevant_data_types(prompt)
     print(f"   → {msg_types}")
@@ -166,12 +174,13 @@ def main() -> None:
         print(exc, file=sys.stderr)
         sys.exit(1)
 
-    from mavpose.chat.plot_creator import MissingAPIKeyError
+    from mavpose.chat.llm import ModelConfigError
     try:
-        creator = PlotCreator(max_retries=args.retries)
-    except MissingAPIKeyError as exc:
+        creator = PlotCreator(max_retries=args.retries, model=args.model)
+    except ModelConfigError as exc:   # includes MissingAPIKeyError
         print(f"❌ {exc}", file=sys.stderr)
         sys.exit(1)
+    print(f"🤖 Model: {creator.model}")
 
     try:
         creator.set_logfile_name(args.log_file)
@@ -179,14 +188,14 @@ def main() -> None:
         log.error("%s", exc)
         sys.exit(1)
 
-    # Phase 1a: schema scan + embeddings (fast, no DataFrame allocation)
+    # Phase 1a: schema scan (fast, no DataFrame allocation)
     print(f"\n📂 Parsing log schema: {args.log_file}")
     try:
         creator.parse_mavlink_log()
     except Exception as exc:
         log.error("Failed to parse log file: %s", exc)
         sys.exit(1)
-    print("✅ Schema indexed.\n")
+    print(f"✅ Found {len(creator.message_types)} message types.\n")
 
     if args.prompt:
         try:

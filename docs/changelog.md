@@ -5,6 +5,33 @@ All notable changes to MAVPose. The format follows
 uses [Semantic Versioning](https://semver.org/) as described in
 [API stability](api-stability.md).
 
+## [0.3.0] — unreleased
+
+### Added
+- **The plot assistant works with any AI provider**: OpenAI, Anthropic,
+  Google Gemini, OpenRouter, Groq, DeepSeek, Mistral, Together, local Ollama
+  and LM Studio, or any OpenAI-compatible server. Choose with
+  `--model provider:model` or `MAVPOSE_MODEL`; if only one provider's key is
+  set, it's used automatically. `MAVPOSE_BASE_URL` and `MAVPOSE_API_KEY`
+  point any provider at another address. See
+  [Choosing an AI provider](guide/chat.md#choosing-an-ai-provider).
+- `PlotCreator(model=...)`, `PlotCreator.model_config`, and
+  `mavpose.chat.ModelConfigError` (the parent of `MissingAPIKeyError`).
+
+### Changed
+- **The model now picks the message types** a request needs from the log's
+  own list, instead of a vector search. Broad requests ("compare GPS and
+  barometer altitude with battery voltage") no longer miss types, and no
+  embeddings API is needed, which is what made other providers possible.
+- Setups with only `OPENROUTER_API_KEY` (and optionally `OPENROUTER_MODEL`)
+  work exactly as before.
+
+### Removed
+- ChromaDB and `langchain-chroma` are no longer dependencies of
+  the `[chat]` extra; `langchain-anthropic` is added. `pip install
+  "mavpose[chat]"` now installs about 60 packages instead of 115.
+- `PlotCreator.db` (the vector store) is gone.
+
 ## [0.2.1] — 2026-10-21
 
 Fixes for the plot assistant (`mavpose[chat]`). The core library and the
