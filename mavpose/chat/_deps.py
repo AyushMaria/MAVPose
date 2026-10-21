@@ -8,8 +8,6 @@ import importlib.util
 CHAT_DEPENDENCIES = {
     "langchain_openai": "langchain-openai",
     "langchain_core": "langchain-core",
-    "langchain_chroma": "langchain-chroma",
-    "chromadb": "chromadb",
     "openai": "openai",
     "dotenv": "python-dotenv",
     "matplotlib": "matplotlib",
