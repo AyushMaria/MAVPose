@@ -61,6 +61,7 @@ __all__ = ["PlotCreator", "RunResult", "MissingAPIKeyError", "ModelConfigError",
 MODES = ("spec", "code")
 FORMATS = ("png", "svg", "pdf")
 DEFAULT_DPI = {"spec": 150, "code": 400}
+MAX_HISTORY = 3   # earlier requests shown to the model, so follow-ups work
 
 _PYTHON_TAGS = {"python", "py", "python3"}
 
@@ -227,6 +228,10 @@ class PlotCreator:
         self.spec_path: str = ""
         self.last_code: str = ""
         self.last_spec: Optional[dict] = None   # last spec drawn (spec mode)
+        # Earlier successful requests in this session, oldest first:
+        # [{"request": str, "spec": dict} or {"request": str, "code": str}]
+        self.history: List[dict] = []
+        self._pending_request: Optional[str] = None   # code mode, until it runs
         self.last_success: bool = False  # did the last request produce a plot?
         self.message_types: dict = {}   # schema metadata from schema_only()
         self.max_retries: int = max_retries
@@ -391,6 +396,10 @@ class PlotCreator:
             output_dir or self.output_dir or os.path.dirname(os.path.abspath(filename))
         )
         os.makedirs(base_dir, exist_ok=True)
+        if filename != self.logfile_name:   # a different log: earlier plots don't apply
+            self.history = []
+            self.last_spec = None
+            self.last_code = ""
         self.logfile_name = filename
         self.script_path = os.path.join(base_dir, "plot.py")
         self.plot_path = os.path.join(base_dir, f"plot.{self.fmt}")
@@ -491,14 +500,33 @@ class PlotCreator:
     # Phase 2 (spec mode) — the model describes the plot, MAVPose draws it
     # ------------------------------------------------------------------
 
+    def _remember(self, entry: dict) -> None:
+        self.history = (self.history + [entry])[-MAX_HISTORY:]
+
+    def _history_text(self) -> str:
+        """Earlier requests for the prompt: all their specs, but only the latest script."""
+        if not self.history:
+            return ""
+        lines = ["\nEarlier requests in this session (oldest first); the new request "
+                 "may refer to them:"]
+        for i, entry in enumerate(self.history, 1):
+            lines.append(f"{i}. Request: {entry['request']}")
+            if "spec" in entry:
+                lines.append(f"   Spec: {json.dumps(entry['spec'])}")
+            elif i == len(self.history):
+                lines.append(f"   Script:\n{entry['code']}")
+        return "\n".join(lines) + "\n"
+
     def plot_from_spec(self, human_input: str, schema_summary: Dict[str, dict]) -> bool:
         """
         Ask the model for a plot spec, check it, and draw it to :attr:`plot_path`.
 
         If the spec is invalid (e.g. a misspelt field), the error goes back to
         the model, up to ``max_retries`` attempts in all.  The spec that was
-        drawn is saved to :attr:`spec_path` and kept in :attr:`last_spec`;
-        the next request sees it, so follow-ups like "make it red" work.
+        drawn is saved to :attr:`spec_path` and kept in :attr:`last_spec`.
+        The last few requests and their specs (:attr:`history`) are shown to
+        the model, so follow-ups like "make it red" or "and add GPS altitude"
+        work.  Loading a different log clears the history.
 
         Returns
         -------
@@ -510,10 +538,7 @@ class PlotCreator:
         if os.path.lexists(self.plot_path):
             os.remove(self.plot_path)
 
-        history = ""
-        if self.last_spec is not None:
-            history = ("\nThe previous plot's spec, which the request may refer to:\n"
-                       + json.dumps(self.last_spec) + "\n")
+        history = self._history_text()
         feedback = ""
         reply = ""
         for attempt in range(1, self.max_retries + 1):
@@ -538,6 +563,7 @@ class PlotCreator:
                 json.dump(spec, fh, indent=2)
             self.last_spec = spec
             self.last_code = json.dumps(spec, indent=2)
+            self._remember({"request": human_input, "spec": spec})
             self.last_success = True
             return True
         return False
@@ -567,9 +593,7 @@ class PlotCreator:
         -------
         The generated script as a string (also written to disk).
         """
-        history = (
-            f"\n\nLast script generated:\n\n{self.last_code}" if self.last_code else ""
-        )
+        history = self._history_text()
         schema_text = json.dumps(schema_summary, indent=2)
         response = self._plot_chain.invoke({
             "schema": schema_text,
@@ -583,6 +607,7 @@ class PlotCreator:
         code = self.extract_code_snippets(response)
         self.write_plot_script(self.script_path, code[0])
         self.last_code = code[0]
+        self._pending_request = human_input
         return code[0]
 
     # ------------------------------------------------------------------
@@ -676,6 +701,9 @@ class PlotCreator:
                 self.last_success = True
                 self.last_code = code
                 last_error = None
+                if self._pending_request is not None:
+                    self._remember({"request": self._pending_request, "code": code})
+                    self._pending_request = None
                 break
             last_error = output
 
