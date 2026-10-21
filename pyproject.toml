@@ -47,7 +47,7 @@ chat = [
 ]
 mcp = ["mcp>=2.3,<3"]
 docs = ["mkdocs>=1.6,<2", "mkdocs-material>=9", "mkdocstrings[python]>=0.25"]
-dev = ["mavpose[chat,mcp]", "pytest>=7", "pytest-cov", "ruff"]
+dev = ["mavpose[chat,mcp]", "pytest>=7", "pytest-cov", "ruff", "pre-commit>=3"]
 
 [project.urls]
 Homepage = "https://ayushmaria.github.io/MAVPose/"
