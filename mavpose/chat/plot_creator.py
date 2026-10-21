@@ -34,6 +34,8 @@ import warnings
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
+import pandas as pd
+
 from mavpose.chat._deps import require_chat_deps
 
 require_chat_deps()  # friendly error if the [chat] extra is missing
@@ -413,18 +415,40 @@ class PlotCreator:
 
     def parse_mavlink_log(self) -> str:
         """
-        Schema-only scan: collect the message types, their fields and row
-        counts.  :meth:`find_relevant_data_types` shows this to the model.
+        Read the log once and collect its message types, fields and row
+        counts.  :meth:`find_relevant_data_types` shows these to the model.
+
+        The parsed data is kept, so later requests on the same log don't
+        read the file again.
 
         Returns
         -------
-        JSON string of all discovered message types and their fields.
+        JSON string of ``{msg_type: {"count", "fields": {name: dtype}, "units"}}``.
         """
         if not self.logfile_name:
             raise RuntimeError("No log file set. Call set_logfile_name() first.")
 
-        self.message_types = self._extractor.schema_only()
+        frames = self._log_frames()
+        units = self._extractor.units
+        self.message_types = {
+            mt: {
+                "count": len(df),
+                "fields": {c: str(df[c].dtype) for c in df.columns
+                           if c not in ("time_s", "msg_type")},
+                "units": {f: u for f, u in units.get(mt, {}).items() if f != "time_s"},
+            }
+            for mt, df in frames.items()
+        }
         return json.dumps(self.message_types, indent=4)
+
+    def _log_frames(self) -> Dict[str, pd.DataFrame]:
+        """The log's frames, parsing the file only the first time."""
+        if not self._extractor:
+            raise RuntimeError("Call set_logfile_name() first.")
+        if not self._extractor.frames:
+            logger.info("Reading %s", self.logfile_name)
+            self._extractor.extract_all()
+        return self._extractor.frames
 
     # ------------------------------------------------------------------
     # Phase 1b — full extraction → Parquet
@@ -435,8 +459,8 @@ class PlotCreator:
         msg_types: List[str],
     ) -> Dict[str, dict]:
         """
-        Run the full extraction for the given message types and export a
-        clean, time-aligned Parquet file.
+        Export the given message types to a clean, time-aligned Parquet file.
+        The log is parsed on first use and reused for later requests.
 
         This is the "headless DB query" step.  The parent process
         (cli.py) calls this after find_relevant_data_types() resolves
@@ -452,11 +476,8 @@ class PlotCreator:
         Schema summary dict (msg_type → rows/columns/dtype/min/max)
         suitable for direct injection into the LLM prompt.
         """
-        if not self._extractor:
-            raise RuntimeError("Call set_logfile_name() first.")
-
-        logger.info("Running full extraction for types: %s", msg_types)
-        self._extractor.extract_all()
+        self._log_frames()   # parsed once per log, then reused
+        logger.info("Exporting message types: %s", msg_types)
         schema_summary = self._extractor.export_parquet(msg_types, self.parquet_path)
         return schema_summary
 
