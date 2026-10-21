@@ -120,7 +120,7 @@ $ mavpose flight.tlog --prompt "Plot altitude over time"
 | LLM framework | LangChain (LCEL) — `langchain-openai`, `langchain-chroma` |
 | Vector store | ChromaDB ≥ 0.5 (persisted to disk) |
 | Extraction layer | pandas ≥ 2.0 + pyarrow ≥ 14.0 |
-| Drone log parsing | pymavlink 2.4.37 |
+| Drone log parsing | pymavlink ≥ 2.4.48 |
 | Plotting | matplotlib 3.7.1 (in generated script) |
 | Sandbox | Subprocess + PEP 578 audit hook, stripped env, resource limits, timeout |
 | Config | python-dotenv |
