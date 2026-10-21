@@ -28,11 +28,13 @@ chat = [
     "tiktoken>=0.5.0",
     "python-dotenv>=1.0.0",
 ]
+mcp = ["mcp>=2.3,<3"]
 docs = ["mkdocs>=1.6,<2", "mkdocs-material>=9", "mkdocstrings[python]>=0.25"]
-dev = ["mavpose[chat]", "pytest>=7", "pytest-cov", "ruff"]
+dev = ["mavpose[chat,mcp]", "pytest>=7", "pytest-cov", "ruff"]
 
 [project.scripts]
 mavpose = "mavpose.chat.cli:main"
+mavpose-mcp = "mavpose.mcp_server:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["mavpose"]

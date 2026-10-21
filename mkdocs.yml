@@ -46,6 +46,7 @@ nav:
     - Concepts: guide/concepts.md
     - Log formats: guide/formats.md
     - Plot assistant: guide/chat.md
+    - MCP server: guide/mcp.md
   - API reference:
     - load and FlightLog: api/flightlog.md
     - LogExtractor: api/log_extractor.md

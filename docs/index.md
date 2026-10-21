@@ -18,6 +18,7 @@ questions into plots.
 ```bash
 pip install mavpose            # data layer only: 10 packages, no AI dependencies
 pip install "mavpose[chat]"    # adds the plain-English plot assistant
+pip install "mavpose[mcp]"     # adds an MCP server so AI agents can read your logs
 ```
 
 Python 3.10 or newer.
@@ -73,4 +74,5 @@ These outputs come from a real 40-minute ArduPilot flight log.
 - [Concepts](guide/concepts.md): time, units, unknown values and damaged logs, explained once.
 - [Log formats](guide/formats.md): message names and quirks for each format.
 - [Plot assistant](guide/chat.md): the optional plain-English plotting layer.
+- [MCP server](guide/mcp.md): let AI agents read your logs with these guarantees.
 - [API reference](api/flightlog.md) and the [stability policy](api-stability.md).

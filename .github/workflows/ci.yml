@@ -42,7 +42,7 @@ jobs:
           pytest tests/ -v --cov=mavpose --cov-report=term-missing
 
   core-only:
-    name: Core without chat extras (Python 3.12)
+    name: Core without optional extras (Python 3.12)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -54,7 +54,7 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - name: Install core only (no [chat] extra)
+      - name: Install core only (no [chat] or [mcp] extra)
         run: |
           python -m pip install --upgrade pip
           pip install -e .
@@ -65,12 +65,12 @@ jobs:
           python - <<'PY'
           import importlib.util, sys
           present = [m for m in ("langchain_openai", "langchain_core", "chromadb",
-                                 "openai", "matplotlib", "dotenv")
+                                 "openai", "matplotlib", "dotenv", "mcp")
                      if importlib.util.find_spec(m)]
-          sys.exit(f"chat deps installed with core: {present}" if present else 0)
+          sys.exit(f"optional deps installed with core: {present}" if present else 0)
           PY
 
-      - name: Run tests (chat tests skip themselves)
+      - name: Run tests (chat and MCP tests skip themselves)
         run: pytest tests/ -v -rs
 
   docs:
