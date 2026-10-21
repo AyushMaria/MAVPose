@@ -14,7 +14,7 @@ uses [Semantic Versioning](https://semver.org/) as described in
   `--model provider:model` or `MAVPOSE_MODEL`; if only one provider's key is
   set, it's used automatically. `MAVPOSE_BASE_URL` and `MAVPOSE_API_KEY`
   point any provider at another address. See
-  [Choosing an AI provider](docs/guide/chat.md#choosing-an-ai-provider).
+  [Choosing an AI provider](guide/chat.md#choosing-an-ai-provider).
 - `PlotCreator(model=...)`, `PlotCreator.model_config`, and
   `mavpose.chat.ModelConfigError` (the parent of `MissingAPIKeyError`).
 
