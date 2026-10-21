@@ -386,7 +386,11 @@ class LogExtractor:
         if self._is_ulog:
             return self._extract_ulog()
 
-        raw: Dict[str, list] = {}  # msg_type -> list of row-dicts
+        # Column-wise storage: msg_type -> {"n": rows so far, "cols": {field: values}}.
+        # One list per field instead of one dict per message keeps memory
+        # several times lower on large logs.  A field missing from a message
+        # (e.g. a non-scalar value that is skipped) is padded with None.
+        tables: Dict[str, dict] = {}
         factors_by_type: Dict[str, Dict[str, float]] = {}
         markers_by_type: Dict[str, Dict[str, float]] = {}
         unknown_counts: Dict[str, Dict[str, int]] = {}
@@ -412,25 +416,39 @@ class LogExtractor:
             factors = factors_by_type[mt]
             markers = markers_by_type[mt]
 
-            row: dict = {"time_s": ts - t0, "msg_type": mt}
+            table = tables.get(mt)
+            if table is None:
+                table = tables[mt] = {"n": 0, "cols": {"time_s": []}}
+            n, cols = table["n"], table["cols"]
+            cols["time_s"].append(ts - t0)
             for field in msg.get_fieldnames():
                 val = getattr(msg, field, None)
                 # Keep scalars only — drop lists / nested objects
                 if field in markers and _is_unknown(val, markers[field]):
-                    row[field] = None
+                    out = None
                     counts = unknown_counts.setdefault(mt, {})
                     counts[field] = counts.get(field, 0) + 1
                 elif isinstance(val, bool):
-                    row[field] = val
+                    out = val
                 elif isinstance(val, (int, float)):
                     factor = factors.get(field)
-                    row[field] = val * factor if factor is not None else val
+                    out = val * factor if factor is not None else val
                 elif isinstance(val, (str, bytes)):
-                    row[field] = (
+                    out = (
                         val.decode("utf-8", errors="replace").rstrip("\x00")
                         if isinstance(val, bytes) else val
                     )
-            raw.setdefault(mt, []).append(row)
+                else:
+                    continue
+                col = cols.get(field)
+                if col is None:
+                    col = cols[field] = [None] * n   # field first seen now
+                col.append(out)
+            n += 1
+            table["n"] = n
+            for col in cols.values():
+                if len(col) < n:                     # field absent from this message
+                    col.append(None)
 
         if untimed:
             logger.warning(
@@ -449,8 +467,11 @@ class LogExtractor:
 
         # Build DataFrames
         frames: Dict[str, pd.DataFrame] = {}
-        for mt, rows in raw.items():
-            df = pd.DataFrame(rows)
+        for mt in list(tables):
+            cols = tables.pop(mt)["cols"]           # free each table as it's converted
+            df = pd.DataFrame(cols)
+            del cols
+            df.insert(1, "msg_type", mt)
             for col in df.columns:
                 if col not in _RESERVED_COLS:
                     df[col] = _coerce_numeric(df[col])

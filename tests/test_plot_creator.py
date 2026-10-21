@@ -776,3 +776,58 @@ class TestRequestHistory:
         c.create_plot("plot altitude", {})
         assert not c.run_script().success
         assert c.history == []
+
+
+class TestParseOnce:
+    """#17: the plot assistant reads each log once, however many requests follow."""
+
+    def _count_parses(self, monkeypatch):
+        import mavpose.log_extractor as le
+
+        calls = {"n": 0}
+        orig = le.LogExtractor._iter_messages
+
+        def counting(self):
+            calls["n"] += 1
+            return orig(self)
+
+        monkeypatch.setattr(le.LogExtractor, "_iter_messages", counting)
+        return calls
+
+    def test_one_parse_for_schema_and_several_requests(self, creator, tmp_path, monkeypatch):
+        from tests.log_builders import build_tlog
+
+        calls = self._count_parses(monkeypatch)
+        creator.set_logfile_name(str(build_tlog(tmp_path / "f.tlog")))
+        creator.parse_mavlink_log()
+        for types in (["GLOBAL_POSITION_INT"], ["SYS_STATUS"], ["GPS_RAW_INT"]):
+            creator.extract_dataframes(types)
+        assert calls["n"] == 1
+
+    def test_message_types_describe_the_parsed_frames(self, creator, tmp_path):
+        from tests.log_builders import build_tlog
+
+        creator.set_logfile_name(str(build_tlog(tmp_path / "f.tlog")))
+        creator.parse_mavlink_log()
+        gpi = creator.message_types["GLOBAL_POSITION_INT"]
+        assert gpi["count"] == len(creator._extractor.frames["GLOBAL_POSITION_INT"])
+        assert "relative_alt" in gpi["fields"] and "time_s" not in gpi["fields"]
+        assert gpi["units"]["relative_alt"] == "m"
+
+    def test_a_new_log_is_read_again(self, creator, tmp_path, monkeypatch):
+        from tests.log_builders import build_dataflash_bin, build_tlog
+
+        calls = self._count_parses(monkeypatch)
+        creator.set_logfile_name(str(build_tlog(tmp_path / "a.tlog")))
+        creator.parse_mavlink_log()
+        creator.set_logfile_name(str(build_dataflash_bin(tmp_path / "b.bin")))
+        creator.parse_mavlink_log()
+        assert calls["n"] == 2
+        assert "BAT" in creator.message_types and "GLOBAL_POSITION_INT" not in creator.message_types
+
+    def test_works_without_parse_mavlink_log_first(self, creator, tmp_path):
+        from tests.log_builders import build_tlog
+
+        creator.set_logfile_name(str(build_tlog(tmp_path / "f.tlog")))
+        summary = creator.extract_dataframes(["GLOBAL_POSITION_INT"])
+        assert summary["GLOBAL_POSITION_INT"]["columns"]["relative_alt"]["unit"] == "m"

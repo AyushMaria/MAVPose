@@ -13,6 +13,16 @@ uses [Semantic Versioning](https://semver.org/) as described in
   `([[(None, (plot_path,))]], code)` tuple. Unpacking it the old way still
   works but warns, and will stop working in a later release. (#14)
 
+### Performance
+- **About half the memory** when reading `.tlog`, `.bin` and `.log` files:
+  values are collected in one list per field instead of one dict per
+  message. On a 9 MB test `.tlog`, peak memory went from 192 MB to 93 MB
+  (`.bin`: 80 MB to 41 MB), and parsing got slightly faster. The resulting
+  data is identical. (#18)
+- **The plot assistant reads each log once**, instead of once for the
+  schema plus once per request. Three requests on the same test log took
+  8 s instead of 28 s. (#17)
+
 ### Fixed
 - Code mode runs the right block from the model's reply: Python-labelled
   blocks first (longest first), then unlabelled ones. A ```` ```bash ````
