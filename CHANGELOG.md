@@ -5,7 +5,7 @@ All notable changes to MAVPose. The format follows
 uses [Semantic Versioning](https://semver.org/) as described in
 [API stability](docs/api-stability.md).
 
-## [0.2.1] — unreleased
+## [0.2.1] — 2026-10-21
 
 Fixes for the plot assistant (`mavpose[chat]`). The core library and the
 MCP server are unchanged.
