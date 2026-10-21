@@ -28,13 +28,14 @@ import json
 import logging
 import os
 import re
+import uuid
 from typing import Dict, List, Optional
 
 from mavpose.chat._deps import require_chat_deps
 
 require_chat_deps()  # friendly error if the [chat] extra is missing
 
-from dotenv import load_dotenv  # noqa: E402
+from dotenv import find_dotenv, load_dotenv  # noqa: E402
 from langchain_chroma import Chroma  # noqa: E402
 from langchain_core.output_parsers import StrOutputParser  # noqa: E402
 from langchain_core.prompts import PromptTemplate  # noqa: E402
@@ -46,11 +47,37 @@ from mavpose.log_extractor import LogExtractor  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["PlotCreator", "VALID_EXTENSIONS"]
+__all__ = ["PlotCreator", "MissingAPIKeyError", "VALID_EXTENSIONS"]
 
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 DEFAULT_MODEL = "z-ai/glm-5.1"
 EMBEDDING_MODEL = "openai/text-embedding-3-small"
+
+
+class MissingAPIKeyError(RuntimeError):
+    """``OPENROUTER_API_KEY`` is not set (or is empty)."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "OPENROUTER_API_KEY is not set.\n"
+            "Get a key at https://openrouter.ai/keys, then either:\n"
+            "  - create a file named .env in the folder you run mavpose from, containing\n"
+            "      OPENROUTER_API_KEY=your-key-here\n"
+            "  - or set it in your shell:  export OPENROUTER_API_KEY=your-key-here"
+            "  (Windows: set OPENROUTER_API_KEY=your-key-here)"
+        )
+
+
+def _load_api_key() -> str:
+    """Read the OpenRouter key from the environment or a .env file in the working folder."""
+    # usecwd=True: search from where the user runs the command.  Without it,
+    # python-dotenv searches upward from this installed module's folder and
+    # never finds the user's .env.
+    load_dotenv(find_dotenv(usecwd=True))
+    key = os.environ.get("OPENROUTER_API_KEY", "").strip()
+    if not key:
+        raise MissingAPIKeyError()
+    return key
 
 
 class PlotCreator:
@@ -61,23 +88,30 @@ class PlotCreator:
     ----------
     max_retries:
         Number of self-healing retries when the generated script fails.
+
+    Raises
+    ------
+    MissingAPIKeyError
+        ``OPENROUTER_API_KEY`` is not set in the environment or in a ``.env``
+        file in the current folder (or a parent folder).
     """
 
     def __init__(self, max_retries: int = 3, script_timeout: int = 60) -> None:
-        load_dotenv()
+        api_key = _load_api_key()
 
         self.logfile_name: str = ""
         self.script_path: str = ""
         self.plot_path: str = ""
         self.parquet_path: str = ""
         self.last_code: str = ""
+        self.last_success: bool = False  # did the last run_script() produce a plot?
         self.message_types: dict = {}   # schema metadata from schema_only()
         self.db: Optional[Chroma] = None
         self.max_retries: int = max_retries
         self.script_timeout: int = script_timeout
         self._extractor: Optional[LogExtractor] = None
+        self._api_key: str = api_key
 
-        api_key: str = os.environ["OPENROUTER_API_KEY"]
         self.model: str = os.getenv("OPENROUTER_MODEL", DEFAULT_MODEL)
 
         llm = ChatOpenAI(
@@ -250,26 +284,31 @@ class PlotCreator:
 
     def _create_embeddings(self, message_types: dict) -> None:
         """
-        Embed each message type into a persisted ChromaDB collection
+        Embed each message type into an in-memory ChromaDB collection
         using OpenRouter's OpenAI-compatible embeddings endpoint.
+
+        Each call gets its own collection, so message types from different
+        logs (or an earlier parse of the same log) never mix.  Nothing is
+        written to disk.
         """
         texts = [json.dumps({mt: message_types[mt]}) for mt in message_types]
         logger.info("Creating embeddings for %d message types.", len(texts))
 
         embeddings = OpenAIEmbeddings(
             model=EMBEDDING_MODEL,
-            openai_api_key=os.environ["OPENROUTER_API_KEY"],
+            openai_api_key=self._api_key,
             openai_api_base=OPENROUTER_BASE_URL,
         )
-        persist_dir = os.path.join(
-            os.path.dirname(os.path.abspath(self.logfile_name)), "chroma_db"
-        )
+        if self.db is not None:
+            try:
+                self.db.delete_collection()
+            except Exception as exc:  # best effort: the old index is unused anyway
+                logger.debug("Could not delete previous collection: %s", exc)
         self.db = Chroma.from_texts(
             texts,
             embeddings,
-            persist_directory=persist_dir,
+            collection_name=f"mavpose-{uuid.uuid4().hex}",
         )
-        logger.info("ChromaDB persisted to %s", persist_dir)
 
     # ------------------------------------------------------------------
     # Semantic search
@@ -392,22 +431,39 @@ class PlotCreator:
         ``self.script_timeout`` seconds.  Self-heals up to
         ``self.max_retries`` times on failure.
 
+        A run only counts as successful if the script exits cleanly **and**
+        writes a new plot file: any ``plot.png`` left from an earlier run is
+        deleted first.  The outcome is stored in :attr:`last_success`.
+
         Returns
         -------
         ([(None, (plot_path,))], last_code)
         """
         output_dir = os.path.dirname(os.path.abspath(self.plot_path))
+        self.last_success = False
         for attempt in range(1, self.max_retries + 1):
             with open(self.script_path, "r", encoding="utf-8") as fh:
                 code = fh.read()
+
+            # A plot from a previous run must not be mistaken for this one.
+            if os.path.lexists(self.plot_path):
+                os.remove(self.plot_path)
 
             success, output = execute_script(
                 code,
                 timeout_seconds=self.script_timeout,
                 allowed_write_dirs=[output_dir],
             )
+            if success and not os.path.isfile(self.plot_path):
+                success = False
+                output = (
+                    f"The script ran without errors but did not save the figure to "
+                    f"{self.plot_path!r}. It must call plt.savefig({self.plot_path!r}, dpi=400)."
+                    + (f"\n\nScript output:\n{output}" if output.strip() else "")
+                )
             if success:
                 logger.info("Script succeeded on attempt %d.", attempt)
+                self.last_success = True
                 break
 
             logger.warning(

@@ -27,7 +27,7 @@ breaking change.
 
 **Not public:** anything whose name starts with `_`; the modules
 `mavpose.ulog_reader`, `mavpose.mcp_server` (use the command and its tools)
-and `mavpose.chat.*` except `mavpose.chat.PlotCreator`;
+and `mavpose.chat.*` except `mavpose.chat.PlotCreator` and `mavpose.chat.MissingAPIKeyError`;
 and the files under `mavpose/data/`. These may change in any release.
 
 ## What a version number tells you

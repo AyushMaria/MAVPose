@@ -93,8 +93,8 @@ def _print_parquet_summary(schema_summary: dict) -> None:
     print("└" + "─" * 58 + "┘")
 
 
-def run_once(creator: PlotCreator, prompt: str) -> None:
-    """Execute one plot request end-to-end."""
+def run_once(creator: PlotCreator, prompt: str) -> bool:
+    """Execute one plot request end-to-end.  Returns True if a plot was saved."""
 
     # --- Phase 1: semantic search ---
     print(f"\n🔍 Finding relevant message types for: '{prompt}'")
@@ -121,10 +121,15 @@ def run_once(creator: PlotCreator, prompt: str) -> None:
     print(code)
     print("─" * 60)
 
-    if creator.plot_path:
+    if creator.last_success:
         print(f"\n✅ Plot saved to: {creator.plot_path}")
     else:
-        print("\n⚠️  Plot file not found — check the generated code above.")
+        print(
+            f"\n❌ No plot was created: the script failed after {creator.max_retries} "
+            "attempt(s). Check the generated code above, run with --verbose to see "
+            "each error, or try a more specific request."
+        )
+    return creator.last_success
 
 
 def interactive_mode(creator: PlotCreator) -> None:
@@ -161,7 +166,12 @@ def main() -> None:
         print(exc, file=sys.stderr)
         sys.exit(1)
 
-    creator = PlotCreator(max_retries=args.retries)
+    from mavpose.chat.plot_creator import MissingAPIKeyError
+    try:
+        creator = PlotCreator(max_retries=args.retries)
+    except MissingAPIKeyError as exc:
+        print(f"❌ {exc}", file=sys.stderr)
+        sys.exit(1)
 
     try:
         creator.set_logfile_name(args.log_file)
@@ -180,9 +190,11 @@ def main() -> None:
 
     if args.prompt:
         try:
-            run_once(creator, args.prompt)
+            ok = run_once(creator, args.prompt)
         except Exception as exc:
             log.error("Plot generation failed: %s", exc)
+            sys.exit(1)
+        if not ok:
             sys.exit(1)
     else:
         interactive_mode(creator)

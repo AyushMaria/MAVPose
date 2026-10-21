@@ -5,6 +5,32 @@ All notable changes to MAVPose. The format follows
 uses [Semantic Versioning](https://semver.org/) as described in
 [API stability](docs/api-stability.md).
 
+## [0.2.1] — 2026-10-21
+
+Fixes for the plot assistant (`mavpose[chat]`). The core library and the
+MCP server are unchanged.
+
+### Fixed
+- **"Plot saved" no longer appears when the plot failed.** A run only
+  counts as successful when the script saves a new `plot.png`; the old one
+  is deleted first, so a plot from an earlier run can't pass for a new one.
+  A script that exits cleanly without saving the figure is sent back to the
+  model to fix. With `--prompt`, the command now exits with status 1 when no
+  plot was created. `PlotCreator.last_success` reports the outcome.
+- **Logs in the same folder no longer share a search index.** The index of
+  message types is now kept in memory, one per log, instead of in a
+  `chroma_db/` folder next to the log that grew on every run and mixed
+  message types from different logs. You can delete old `chroma_db/`
+  folders.
+- **A missing API key gives a clear message** instead of a `KeyError`
+  traceback, and an empty `OPENROUTER_API_KEY=` counts as missing
+  (`PlotCreator` raises `MissingAPIKeyError`).
+- **`.env` is found when MAVPose is installed with pip.** It is now read
+  from the folder you run `mavpose` in (or a parent folder). Before, only
+  a `.env` next to the MAVPose source was found, so the documented setup
+  only worked from a clone of the repository.
+- Leftover "MAVPlot" name in `template.env`.
+
 ## [0.2.0] — 2026-10-21
 
 The core is now a standalone, trustworthy data layer for ArduPilot and PX4
