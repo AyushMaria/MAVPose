@@ -879,6 +879,9 @@
         transition-duration: 0.01ms !important;
       }
     }
+  
+    /* ── Small screens ───────────────────────────────────────── */
+    @media (max-width: 640px) { .topbar-nav, .topbar-gh { display: none !important; } }
   </style>
 </head>
 <body>
@@ -909,7 +912,7 @@
     <div class="topbar-spacer"></div>
 
     <nav class="topbar-nav" aria-label="Primary navigation">
-      <a href="index.html" target="_blank" rel="noopener">Home</a>
+      <a href="index.html">Home</a>
       <a href="#" class="active">API Reference</a>
       <a href="https://github.com/AyushMaria/MAVPose" target="_blank" rel="noopener">GitHub</a>
     </nav>
@@ -928,40 +931,31 @@
   <aside class="sidebar" aria-label="API navigation">
     <div class="sidebar-section">
       <div class="sidebar-label">Overview</div>
-      <a href="#overview" class="sidebar-link active">Introduction</a>
-      <a href="#pipeline" class="sidebar-link">Pipeline Architecture</a>
+      <a href="#quickstart" class="sidebar-link active">Quick start</a>
       <a href="#installation" class="sidebar-link">Installation</a>
-      <a href="#env-vars" class="sidebar-link">Environment Variables</a>
+      <a href="#formats" class="sidebar-link">Log formats</a>
     </div>
     <div class="sidebar-divider"></div>
     <div class="sidebar-section">
-      <div class="sidebar-label">CLI</div>
-      <a href="#cli" class="sidebar-link">mavpose (entry point)</a>
-      <a href="#cli-flags" class="sidebar-link">Flags Reference</a>
+      <div class="sidebar-label">Library</div>
+      <a href="#load" class="sidebar-link">load()</a>
+      <a href="#flightlog" class="sidebar-link">FlightLog</a>
+      <a href="#fl-series" class="sidebar-link">series()</a>
+      <a href="#fl-summary" class="sidebar-link">summary()</a>
+      <a href="#fl-parquet" class="sidebar-link">to_parquet()</a>
+      <a href="#logextractor" class="sidebar-link">LogExtractor</a>
+      <a href="#validation" class="sidebar-link">validate_mavlink_file()</a>
     </div>
     <div class="sidebar-divider"></div>
     <div class="sidebar-section">
-      <div class="sidebar-label">PlotCreator</div>
-      <a href="#plotcreator" class="sidebar-link">Class Overview</a>
-      <a href="#plotcreator-init" class="sidebar-link">__init__</a>
-      <a href="#set-logfile-name" class="sidebar-link">set_logfile_name()</a>
-      <a href="#parse-mavlink-log" class="sidebar-link">parse_mavlink_log()</a>
-      <a href="#find-relevant-data-types" class="sidebar-link">find_relevant_data_types()</a>
-      <a href="#extract-dataframes" class="sidebar-link">extract_dataframes()</a>
-      <a href="#create-plot" class="sidebar-link">create_plot()</a>
-      <a href="#run-script" class="sidebar-link">run_script()</a>
-      <a href="#attempt-to-fix-script" class="sidebar-link">attempt_to_fix_script()</a>
+      <div class="sidebar-label">Add-ons</div>
+      <a href="#mcp" class="sidebar-link">MCP server</a>
+      <a href="#chat" class="sidebar-link">Plot assistant</a>
     </div>
     <div class="sidebar-divider"></div>
     <div class="sidebar-section">
-      <div class="sidebar-label">Static Helpers</div>
-      <a href="#extract-code-snippets" class="sidebar-link">extract_code_snippets()</a>
-      <a href="#write-plot-script" class="sidebar-link">write_plot_script()</a>
-    </div>
-    <div class="sidebar-divider"></div>
-    <div class="sidebar-section">
-      <div class="sidebar-label">Constants</div>
-      <a href="#constants" class="sidebar-link">Module Constants</a>
+      <div class="sidebar-label">Project</div>
+      <a href="#stability" class="sidebar-link">API stability</a>
     </div>
   </aside>
 
@@ -969,7 +963,7 @@
   <main class="main">
 
     <div class="breadcrumb">
-      <a href="index.html" target="_blank" rel="noopener">MAVPose</a>
+      <a href="index.html">MAVPose</a>
       <span>›</span>
       <span>API Reference</span>
     </div>
@@ -981,11 +975,11 @@
         Python API Reference
       </div>
       <h1>MAVPose API</h1>
-      <p>Complete reference for all public classes, methods, CLI flags, and environment variables exposed by the <code>mavpose</code> package.</p>
+      <p>Reference for the public API of the <code>mavpose</code> package: the data layer, the MCP server and the plot assistant. The full guides live in the repository's <a href="https://github.com/AyushMaria/MAVPose/tree/master/docs" target="_blank" rel="noopener noreferrer">docs</a> folder.</p>
       <div class="page-header-meta">
         <div class="meta-chip">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-          v0.1.0
+          v0.2.0
         </div>
         <div class="meta-chip">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -993,7 +987,7 @@
         </div>
         <div class="meta-chip">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
-          mavpose/PlotCreator.py
+          ArduPilot · PX4
         </div>
       </div>
     </div>
@@ -1002,260 +996,110 @@
     <div class="toc-card">
       <div class="toc-title">On this page</div>
       <div class="toc-links">
-        <a href="#pipeline" class="toc-link"><span class="dot"></span>Pipeline Architecture</a>
-        <a href="#cli" class="toc-link"><span class="dot"></span>CLI Entry Point</a>
-        <a href="#plotcreator" class="toc-link"><span class="dot"></span>PlotCreator Class</a>
-        <a href="#env-vars" class="toc-link"><span class="dot"></span>Environment Variables</a>
-        <a href="#constants" class="toc-link"><span class="dot"></span>Module Constants</a>
-        <a href="#installation" class="toc-link"><span class="dot"></span>Quick Start</a>
+        <a href="#quickstart" class="toc-link"><span class="dot"></span>Quick start</a>
+        <a href="#load" class="toc-link"><span class="dot"></span>mavpose.load()</a>
+        <a href="#flightlog" class="toc-link"><span class="dot"></span>FlightLog</a>
+        <a href="#logextractor" class="toc-link"><span class="dot"></span>LogExtractor</a>
+        <a href="#mcp" class="toc-link"><span class="dot"></span>MCP server</a>
+        <a href="#chat" class="toc-link"><span class="dot"></span>Plot assistant</a>
+        <a href="#stability" class="toc-link"><span class="dot"></span>API stability</a>
       </div>
     </div>
 
-    <!-- ── Pipeline Architecture ──────────────────────────────────────── -->
-    <section class="api-section" id="pipeline">
+    <section class="api-section" id="quickstart">
       <h2 class="section-title">
-        Pipeline Architecture
-        <a href="#pipeline" class="section-anchor" aria-label="Link to section">#</a>
+        Quick start
+        <a href="#quickstart" class="section-anchor" aria-label="Link to section">#</a>
       </h2>
-      <p class="section-desc">
-        MAVPose uses a strict two-phase pipeline. The LLM never sees raw binary telemetry — it only receives a typed, time-aligned Parquet schema.
-      </p>
+      <p class="section-desc">Load a log, then read frames and series with units attached.</p>
 
-      <div class="pipeline">
-        <div class="pipeline-row">
-          <div class="pipeline-step">
-            <div class="pipeline-num">1a</div>
-            <div class="pipeline-text">
-              <strong>Schema Scan + Embeddings</strong>
-              <span>parse_mavlink_log() → ChromaDB</span>
+      <div>
+            <div class="code-block-label">Quick start</div>
+<div class="code-block">
+              <div class="code-block-topbar"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre><code><span class="tok-kw">import</span> mavpose
+
+log <span class="tok-op">=</span> mavpose.<span class="tok-fn">load</span>(<span class="tok-str">"flight.tlog"</span>)
+log
+<span class="tok-cmt"># &lt;FlightLog 'flight.tlog': mavlink, 38 message types, 2443.8 s&gt;</span>
+
+alt <span class="tok-op">=</span> log.<span class="tok-fn">series</span>(<span class="tok-str">"GLOBAL_POSITION_INT"</span>, <span class="tok-str">"relative_alt"</span>)
+alt.attrs
+<span class="tok-cmt"># {'unit': 'm', 'msg_type': 'GLOBAL_POSITION_INT'}</span>
+
+log.unknown_counts
+<span class="tok-cmt"># {'GPS_RAW_INT': {'epv': 6338}}</span>
+
+log.<span class="tok-fn">to_parquet</span>(<span class="tok-str">"telemetry.parquet"</span>)</code></pre>
             </div>
           </div>
-        </div>
-        <div class="pipeline-arrow">↓</div>
-        <div class="pipeline-row">
-          <div class="pipeline-step">
-            <div class="pipeline-num">1b</div>
-            <div class="pipeline-text">
-              <strong>Semantic Field Retrieval</strong>
-              <span>find_relevant_data_types(prompt)</span>
-            </div>
-          </div>
-        </div>
-        <div class="pipeline-arrow">↓</div>
-        <div class="pipeline-row">
-          <div class="pipeline-step">
-            <div class="pipeline-num">1c</div>
-            <div class="pipeline-text">
-              <strong>Full Extraction → Parquet</strong>
-              <span>extract_dataframes(msg_types)</span>
-            </div>
-          </div>
-        </div>
-        <div class="pipeline-arrow">↓</div>
-        <div class="pipeline-row">
-          <div class="pipeline-step">
-            <div class="pipeline-num">2a</div>
-            <div class="pipeline-text">
-              <strong>LLM Script Generation</strong>
-              <span>create_plot(prompt, schema_summary)</span>
-            </div>
-          </div>
-        </div>
-        <div class="pipeline-arrow">↓</div>
-        <div class="pipeline-row">
-          <div class="pipeline-step">
-            <div class="pipeline-num">2b</div>
-            <div class="pipeline-text">
-              <strong>Sandboxed Execution + Self-Heal</strong>
-              <span>run_script() → plot.png</span>
-            </div>
-          </div>
-        </div>
+      <div class="callout callout-info" style="margin-top: var(--space-6);">
+        <span class="callout-icon">💡</span>
+        <p>Outputs above come from a real 40-minute ArduPilot flight log. Every frame shares one <code>time_s</code> axis (seconds from log start), scaled fields are in natural units, and "value not provided" markers are NaN.</p>
       </div>
     </section>
-
-    <!-- ── Installation ───────────────────────────────────────────────── -->
     <section class="api-section" id="installation">
       <h2 class="section-title">
-        Quick Start
-        <a href="#installation" class="section-anchor">#</a>
+        Installation
+        <a href="#installation" class="section-anchor" aria-label="Link to section">#</a>
       </h2>
-      <p class="section-desc">Install the package and configure your API key to begin.</p>
+      <p class="section-desc">Python 3.10 or newer. The core has no AI dependencies; add extras only if you need them.</p>
 
-      <div class="code-block-wrap" style="margin-bottom: var(--space-4);">
-        <div class="code-block">
-          <div class="code-block-topbar">
-            <span class="code-lang">bash</span>
-            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      <div>
+            <div class="code-block-label">Install</div>
+<div class="code-block">
+              <div class="code-block-topbar"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre><code><span class="tok-cmt"># Data layer only: 10 packages, no AI dependencies</span>
+pip install <span class="tok-str">"mavpose @ git+https://github.com/AyushMaria/MAVPose"</span>
+
+<span class="tok-cmt"># Optional extras</span>
+<span class="tok-cmt"># MCP server for AI agents</span>
+pip install <span class="tok-str">"mavpose[mcp] @ git+https://github.com/AyushMaria/MAVPose"</span>
+<span class="tok-cmt"># plain-English plot assistant</span>
+pip install <span class="tok-str">"mavpose[chat] @ git+https://github.com/AyushMaria/MAVPose"</span></code></pre>
+            </div>
           </div>
-          <pre><code><span class="tok-cmt"># Install</span>
-pip install mavpose
-
-<span class="tok-cmt"># Configure API key</span>
-<span class="tok-kw">set</span> OPENROUTER_API_KEY=your-key-here    <span class="tok-cmt"># Windows</span>
-<span class="tok-kw">export</span> OPENROUTER_API_KEY=your-key-here  <span class="tok-cmt"># macOS/Linux</span>
-
-<span class="tok-cmt"># Run via CLI</span>
-mavpose flight.tlog --prompt <span class="tok-str">"Plot altitude over time"</span>
-
-<span class="tok-cmt"># Or use the Python API</span>
-<span class="tok-kw">from</span> <span class="tok-var">mavpose.PlotCreator</span> <span class="tok-kw">import</span> <span class="tok-cls">PlotCreator</span>
-creator <span class="tok-op">=</span> <span class="tok-fn">PlotCreator</span>(max_retries<span class="tok-op">=</span><span class="tok-num">3</span>)
-creator.<span class="tok-fn">set_logfile_name</span>(<span class="tok-str">"flight.tlog"</span>)
-creator.<span class="tok-fn">parse_mavlink_log</span>()
-types <span class="tok-op">=</span> creator.<span class="tok-fn">find_relevant_data_types</span>(<span class="tok-str">"altitude over time"</span>)
-schema <span class="tok-op">=</span> creator.<span class="tok-fn">extract_dataframes</span>(types)
-creator.<span class="tok-fn">create_plot</span>(<span class="tok-str">"Plot altitude over time"</span>, schema)
-creator.<span class="tok-fn">run_script</span>()</code></pre>
-        </div>
-      </div>
-
-      <div class="callout callout-warn">
+      <div class="callout callout-warn" style="margin-top: var(--space-6);">
         <span class="callout-icon">⚠️</span>
-        <p><strong>Never commit <code>.env</code></strong> — it is already in <code>.gitignore</code>. Use <code>template.env</code> as a reference and create your own <code>.env</code> from it.</p>
+        <p>PyPI still has 0.1.0, the earlier plot-only release, which predates this API. Install from GitHub as shown until 0.2.0 is published.</p>
       </div>
     </section>
-
-    <!-- ── Environment Variables ──────────────────────────────────────── -->
-    <section class="api-section" id="env-vars">
+    <section class="api-section" id="formats">
       <h2 class="section-title">
-        Environment Variables
-        <a href="#env-vars" class="section-anchor">#</a>
+        Log formats
+        <a href="#formats" class="section-anchor" aria-label="Link to section">#</a>
       </h2>
-      <p class="section-desc">All configuration is done via environment variables, typically loaded from a <code>.env</code> file via <code>python-dotenv</code>.</p>
+      <p class="section-desc"><code>load()</code> picks the reader from the file extension. Every format gets the same guarantees.</p>
 
       <table class="cli-table">
-        <thead>
-          <tr>
-            <th>Variable</th>
-            <th>Required</th>
-            <th>Default</th>
-            <th>Description</th>
-          </tr>
-        </thead>
+        <thead><tr><th>Format</th><th>Extension</th><th>Autopilot</th><th>Message names</th></tr></thead>
         <tbody>
-          <tr>
-            <td><code>OPENROUTER_API_KEY</code></td>
-            <td><span class="p-required">Required</span></td>
-            <td><span class="p-default">—</span></td>
-            <td>Your OpenRouter API key. Used for both LLM inference and embeddings.</td>
-          </tr>
-          <tr>
-            <td><code>OPENROUTER_MODEL</code></td>
-            <td><span class="p-optional">Optional</span></td>
-            <td><code>z-ai/glm-5.1</code></td>
-            <td>The OpenRouter model slug to use for plot generation and self-healing.</td>
-          </tr>
+          <tr><td>MAVLink telemetry log</td><td><code>.tlog</code></td><td>ArduPilot, PX4, any MAVLink vehicle</td><td>MAVLink names, e.g. <code>GLOBAL_POSITION_INT</code></td></tr>
+          <tr><td>DataFlash binary / text log</td><td><code>.bin</code>, <code>.log</code></td><td>ArduPilot</td><td>DataFlash names, e.g. <code>GPS</code>, <code>BAT</code></td></tr>
+          <tr><td>ULog</td><td><code>.ulg</code></td><td>PX4</td><td>Topic plus instance, e.g. <code>vehicle_gps_position_0</code></td></tr>
         </tbody>
       </table>
     </section>
-
-    <!-- ── CLI ────────────────────────────────────────────────────────── -->
-    <section class="api-section" id="cli">
+    <section class="api-section" id="load">
       <h2 class="section-title">
-        CLI — <code>mavpose</code>
-        <a href="#cli" class="section-anchor">#</a>
+        <code>mavpose.load()</code>
+        <a href="#load" class="section-anchor" aria-label="Link to section">#</a>
       </h2>
-      <p class="section-desc">The <code>mavpose</code> command is the headless CLI entry point defined in <code>mavpose/cli.py</code>. It wires the two-phase pipeline end-to-end.</p>
+      <p class="section-desc">The main entry point.</p>
 
-      <div class="code-block-wrap" style="margin-bottom: var(--space-6);">
-        <div class="code-block">
-          <div class="code-block-topbar">
-            <span class="code-lang">usage</span>
-            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
-          </div>
-          <pre><code>mavpose <span class="tok-var">log_file</span> [<span class="tok-var">options</span>]
-
-<span class="tok-cmt"># One-shot</span>
-mavpose flight.tlog <span class="tok-op">--</span>prompt <span class="tok-str">"Plot altitude over time"</span>
-
-<span class="tok-cmt"># With custom retry count and verbose logging</span>
-mavpose flight.tlog <span class="tok-op">-</span>p <span class="tok-str">"Show battery voltage"</span> <span class="tok-op">-</span>r <span class="tok-num">5</span> <span class="tok-op">-</span>v
-
-<span class="tok-cmt"># Interactive REPL mode (omit --prompt)</span>
-mavpose flight.tlog</code></pre>
-        </div>
-      </div>
-
-      <div id="cli-flags">
-        <h3 style="font-size: var(--text-base); font-weight: 600; color: var(--color-text); margin-bottom: var(--space-4); letter-spacing: -0.01em;">Flags Reference</h3>
-        <table class="cli-table">
-          <thead>
-            <tr>
-              <th>Flag</th>
-              <th>Short</th>
-              <th>Type</th>
-              <th>Default</th>
-              <th>Description</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><span class="cli-flag">log_file</span></td>
-              <td>—</td>
-              <td><code>path</code></td>
-              <td><span class="p-required">Required</span></td>
-              <td>Path to a MAVLink log file. Accepts <code>.tlog</code>, <code>.bin</code>, <code>.log</code>.</td>
-            </tr>
-            <tr>
-              <td><span class="cli-flag">--prompt</span></td>
-              <td><span class="cli-flag">-p</span></td>
-              <td><code>str</code></td>
-              <td><code>None</code></td>
-              <td>Natural-language plot request. Omit to enter interactive REPL mode.</td>
-            </tr>
-            <tr>
-              <td><span class="cli-flag">--retries</span></td>
-              <td><span class="cli-flag">-r</span></td>
-              <td><code>int</code></td>
-              <td><code>3</code></td>
-              <td>Maximum number of self-healing retries when the generated script fails.</td>
-            </tr>
-            <tr>
-              <td><span class="cli-flag">--verbose</span></td>
-              <td><span class="cli-flag">-v</span></td>
-              <td><code>flag</code></td>
-              <td><code>False</code></td>
-              <td>Enable <code>DEBUG</code>-level logging output.</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="callout callout-info" style="margin-top: var(--space-6);">
-        <span class="callout-icon">💡</span>
-        <p>In interactive mode the REPL reuses the parsed schema across queries — re-parsing and re-embedding are skipped on every subsequent prompt. Type <code>quit</code>, <code>exit</code>, or <code>q</code> to stop.</p>
-      </div>
-    </section>
-
-    <!-- ── PlotCreator Class ──────────────────────────────────────────── -->
-    <section class="api-section" id="plotcreator">
-      <h2 class="section-title">
-        <code>class PlotCreator</code>
-        <a href="#plotcreator" class="section-anchor">#</a>
-      </h2>
-      <p class="section-desc">
-        The central orchestrator. Encapsulates the full two-phase pipeline: log extraction → ChromaDB semantic search → LLM script generation → sandboxed execution with self-healing.
-        Defined in <code>mavpose/PlotCreator.py</code>.
-      </p>
-
-      <!-- __init__ -->
-      <div class="method-card open" id="plotcreator-init">
+      <div class="method-card open" id="load">
         <div class="method-header" onclick="toggleCard(this)">
-          <span class="method-badge badge-init">init</span>
+          <span class="method-badge badge-static">function</span>
           <div class="method-sig">
             <div class="method-name">
-              __init__<span class="arg">(self, max_retries: </span><span class="type-hint">int</span><span class="arg"> = 3)</span>
+              mavpose.load<span class="arg">(</span><span class="arg">path: </span><span class="type-hint">str</span><span class="arg">, </span><span class="arg">*</span><span class="arg">, </span><span class="arg">convert_units: </span><span class="type-hint">bool</span><span class="arg"> = True</span><span class="arg">, </span><span class="arg">filter_unknown: </span><span class="type-hint">bool</span><span class="arg"> = True</span><span class="arg">)</span><span class="arg"> → </span><span class="type-hint">FlightLog</span>
             </div>
-            <div class="method-summary">Initialise the PlotCreator, load environment, build LangChain LLM chains.</div>
+            <div class="method-summary">Read a flight log into a FlightLog. The format is detected from the extension.</div>
           </div>
           <svg class="method-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
         </div>
         <div class="method-body">
-          <p class="method-desc">
-            Loads <code>.env</code> via <code>python-dotenv</code>, reads <code>OPENROUTER_API_KEY</code> and <code>OPENROUTER_MODEL</code>, and constructs two <strong>LangChain LCEL chains</strong> — a plot-generation chain and a fix chain — both backed by <code>ChatOpenAI</code> pointing at the OpenRouter base URL.
-          </p>
-
+          <p class="method-desc">Validates the file, parses every message, puts all message types on one <code>time_s</code> axis, converts units and replaces unknown markers. Damaged packets are skipped and counted in <code>log.stats</code>.</p>
           <div>
             <div class="param-section-label">Parameters</div>
             <div class="param-table-wrap">
@@ -1263,802 +1107,541 @@ mavpose flight.tlog</code></pre>
                 <thead><tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
                 <tbody>
                   <tr>
-                    <td class="p-name">max_retries</td>
-                    <td class="p-type">int</td>
-                    <td class="p-default">3</td>
-                    <td>Maximum self-healing retries when <code>run_script()</code> encounters an error.</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div class="raises-block">
-            <div class="block-label">Raises</div>
-            <p><code>KeyError</code> — if <code>OPENROUTER_API_KEY</code> is not set in the environment.</p>
-          </div>
-
-          <div>
-            <div class="code-block-label">Instance attributes set during init</div>
-            <div class="code-block">
-              <div class="code-block-topbar"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-              <pre><code>creator.logfile_name    <span class="tok-op">=</span> <span class="tok-str">""</span>          <span class="tok-cmt"># str — active log path</span>
-creator.script_path     <span class="tok-op">=</span> <span class="tok-str">""</span>          <span class="tok-cmt"># str — plot.py output path</span>
-creator.plot_path       <span class="tok-op">=</span> <span class="tok-str">""</span>          <span class="tok-cmt"># str — plot.png output path</span>
-creator.parquet_path    <span class="tok-op">=</span> <span class="tok-str">""</span>          <span class="tok-cmt"># str — telemetry.parquet path</span>
-creator.last_code       <span class="tok-op">=</span> <span class="tok-str">""</span>          <span class="tok-cmt"># str — last generated script</span>
-creator.message_types   <span class="tok-op">=</span> {}          <span class="tok-cmt"># dict — schema from schema_only()</span>
-creator.db              <span class="tok-op">=</span> <span class="tok-cls">None</span>        <span class="tok-cmt"># Chroma | None</span>
-creator.max_retries     <span class="tok-op">=</span> <span class="tok-num">3</span>           <span class="tok-cmt"># int</span>
-creator.model           <span class="tok-op">=</span> <span class="tok-str">"z-ai/glm-5.1"</span>  <span class="tok-cmt"># str — active model slug</span></code></pre>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- set_logfile_name -->
-      <div class="method-card" id="set-logfile-name">
-        <div class="method-header" onclick="toggleCard(this)">
-          <span class="method-badge badge-method">method</span>
-          <div class="method-sig">
-            <div class="method-name">
-              set_logfile_name<span class="arg">(self, filename: </span><span class="type-hint">str</span><span class="arg">) → </span><span class="type-hint">None</span>
-            </div>
-            <div class="method-summary">Register a log file and derive all output paths.</div>
-          </div>
-          <svg class="method-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-        </div>
-        <div class="method-body">
-          <p class="method-desc">
-            Validates the file extension, resolves the absolute path, and sets <code>self.script_path</code>, <code>self.plot_path</code>, <code>self.parquet_path</code> all relative to the log file's directory. Also instantiates the internal <code>LogExtractor</code>.
-            <br><br>
-            <strong>Must be called before any other method.</strong>
-          </p>
-
-          <div>
-            <div class="param-section-label">Parameters</div>
-            <div class="param-table-wrap">
-              <table class="param-table">
-                <thead><tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
-                <tbody>
-                  <tr>
-                    <td class="p-name">filename</td>
+                    <td class="p-name">path</td>
                     <td class="p-type">str</td>
                     <td><span class="p-required">Required</span></td>
-                    <td>Path to a MAVLink log file. Must end in <code>.tlog</code>, <code>.bin</code>, or <code>.log</code>.</td>
+                    <td>A MAVLink <code>.tlog</code>, ArduPilot <code>.bin</code>/<code>.log</code> or PX4 <code>.ulg</code> file.</td>
+                  </tr>
+                  <tr>
+                    <td class="p-name">convert_units</td>
+                    <td class="p-type">bool</td>
+                    <td><span class="p-default">True</span></td>
+                    <td>Convert scaled fields to natural units (mm → m, degE7 → deg, mV → V…). Pass <code>False</code> to keep raw stored values, with raw units reported.</td>
+                  </tr>
+                  <tr>
+                    <td class="p-name">filter_unknown</td>
+                    <td class="p-type">bool</td>
+                    <td><span class="p-default">True</span></td>
+                    <td>Replace "value not provided" markers (e.g. <code>current_battery = -1</code>) with NaN.</td>
                   </tr>
                 </tbody>
               </table>
             </div>
           </div>
-
+          <div class="return-block">
+            <div class="block-label">Returns</div>
+            <p><code>FlightLog</code></p>
+          </div>
           <div class="raises-block">
             <div class="block-label">Raises</div>
-            <p><code>ValueError</code> — if the file extension is not in <code>{'.tlog', '.bin', '.log'}</code>.</p>
-          </div>
-
-          <div>
-            <div class="code-block-label">Example</div>
-            <div class="code-block">
-              <div class="code-block-topbar"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-              <pre><code>creator.<span class="tok-fn">set_logfile_name</span>(<span class="tok-str">"logs/2024-06-01.tlog"</span>)
-<span class="tok-cmt"># Derived paths (all in logs/):</span>
-<span class="tok-cmt">#   script_path  → logs/plot.py</span>
-<span class="tok-cmt">#   plot_path    → logs/plot.png</span>
-<span class="tok-cmt">#   parquet_path → logs/telemetry.parquet</span></code></pre>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- parse_mavlink_log -->
-      <div class="method-card" id="parse-mavlink-log">
-        <div class="method-header" onclick="toggleCard(this)">
-          <span class="method-badge badge-method">method</span>
-          <div class="method-sig">
-            <div class="method-name">
-              parse_mavlink_log<span class="arg">(self) → </span><span class="type-hint">str</span>
-            </div>
-            <div class="method-summary">Phase 1a — schema-only scan and ChromaDB embedding build.</div>
-          </div>
-          <svg class="method-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-        </div>
-        <div class="method-body">
-          <p class="method-desc">
-            Runs a <strong>schema-only scan</strong> of the MAVLink log — no DataFrames are allocated. Calls <code>LogExtractor.schema_only()</code> to collect message-type metadata, then builds a <strong>ChromaDB vector index</strong> persisted to <code>&lt;log_dir&gt;/chroma_db/</code> via <code>OpenAIEmbeddings</code> (using the OpenRouter embeddings endpoint). Subsequent calls to the same log directory skip re-embedding automatically.
-          </p>
-
-          <div class="return-block">
-            <div class="block-label">Returns</div>
-            <p>JSON-encoded <code>str</code> of all discovered message types and their fields (pretty-printed with <code>indent=4</code>).</p>
-          </div>
-
-          <div class="raises-block">
-            <div class="block-label">Raises</div>
-            <p><code>RuntimeError</code> — if <code>set_logfile_name()</code> has not been called first.</p>
-          </div>
-
-          <div>
-            <div class="code-block-label">Example output (truncated)</div>
-            <div class="code-block">
-              <div class="code-block-topbar"><span class="code-lang">json</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-              <pre><code>{
-  <span class="tok-str">"GLOBAL_POSITION_INT"</span>: {
-    <span class="tok-str">"fields"</span>: [<span class="tok-str">"time_boot_ms"</span>, <span class="tok-str">"lat"</span>, <span class="tok-str">"lon"</span>, <span class="tok-str">"alt"</span>, <span class="tok-str">"relative_alt"</span>],
-    <span class="tok-str">"count"</span>: <span class="tok-num">4821</span>
-  },
-  <span class="tok-str">"SYS_STATUS"</span>: {
-    <span class="tok-str">"fields"</span>: [<span class="tok-str">"voltage_battery"</span>, <span class="tok-str">"current_battery"</span>],
-    <span class="tok-str">"count"</span>: <span class="tok-num">960</span>
-  }
-}</code></pre>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- find_relevant_data_types -->
-      <div class="method-card" id="find-relevant-data-types">
-        <div class="method-header" onclick="toggleCard(this)">
-          <span class="method-badge badge-method">method</span>
-          <div class="method-sig">
-            <div class="method-name">
-              find_relevant_data_types<span class="arg">(self, human_input: </span><span class="type-hint">str</span><span class="arg">) → </span><span class="type-hint">List[str]</span>
-            </div>
-            <div class="method-summary">Semantic similarity search to resolve relevant MAVLink message types.</div>
-          </div>
-          <svg class="method-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-        </div>
-        <div class="method-body">
-          <p class="method-desc">
-            Queries the ChromaDB vector store (built by <code>parse_mavlink_log()</code>) with a <code>similarity_search</code> against the user's natural-language prompt. Each stored document is a JSON-encoded single message type; the method extracts the message type names from the retrieved documents and deduplicates them while preserving result order.
-          </p>
-
-          <div>
-            <div class="param-section-label">Parameters</div>
-            <div class="param-table-wrap">
-              <table class="param-table">
-                <thead><tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
-                <tbody>
-                  <tr>
-                    <td class="p-name">human_input</td>
-                    <td class="p-type">str</td>
-                    <td><span class="p-required">Required</span></td>
-                    <td>The user's natural-language plot request (e.g. <code>"Plot altitude over time"</code>).</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div class="return-block">
-            <div class="block-label">Returns</div>
-            <p><code>List[str]</code> — deduplicated list of MAVLink message type names most semantically relevant to <code>human_input</code>. Preserves order of similarity score.</p>
-          </div>
-
-          <div class="raises-block">
-            <div class="block-label">Raises</div>
-            <p><code>RuntimeError</code> — if <code>parse_mavlink_log()</code> has not been called (vector store is <code>None</code>).</p>
-          </div>
-
-          <div>
-            <div class="code-block-label">Example</div>
-            <div class="code-block">
-              <div class="code-block-topbar"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-              <pre><code>types <span class="tok-op">=</span> creator.<span class="tok-fn">find_relevant_data_types</span>(<span class="tok-str">"altitude over time"</span>)
-<span class="tok-cmt"># → ['GLOBAL_POSITION_INT', 'GPS_RAW_INT']</span></code></pre>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- extract_dataframes -->
-      <div class="method-card" id="extract-dataframes">
-        <div class="method-header" onclick="toggleCard(this)">
-          <span class="method-badge badge-method">method</span>
-          <div class="method-sig">
-            <div class="method-name">
-              extract_dataframes<span class="arg">(self, msg_types: </span><span class="type-hint">List[str]</span><span class="arg">) → </span><span class="type-hint">Dict[str, dict]</span>
-            </div>
-            <div class="method-summary">Phase 1b — full extraction of message types and export to Parquet.</div>
-          </div>
-          <svg class="method-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-        </div>
-        <div class="method-body">
-          <p class="method-desc">
-            Runs the <strong>full extraction</strong> for the given message types via <code>LogExtractor.extract_all()</code>, then calls <code>LogExtractor.export_parquet(msg_types, parquet_path)</code> which:
-          </p>
-          <ul style="font-size: var(--text-sm); color: var(--color-text-muted); padding-left: var(--space-5); margin-top: var(--space-2); line-height: 1.8;">
-            <li>Normalises timestamps into a <code>time_s</code> float64 column (seconds from log start).</li>
-            <li>Tags every row with its <code>msg_type</code>.</li>
-            <li>Concatenates all requested message types into a single time-aligned Parquet file at <code>self.parquet_path</code>.</li>
-          </ul>
-          <p class="method-desc" style="margin-top: var(--space-3);">The returned schema summary is injected directly into the LLM prompt — the LLM never touches the binary log.</p>
-
-          <div>
-            <div class="param-section-label">Parameters</div>
-            <div class="param-table-wrap">
-              <table class="param-table">
-                <thead><tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
-                <tbody>
-                  <tr>
-                    <td class="p-name">msg_types</td>
-                    <td class="p-type">List[str]</td>
-                    <td><span class="p-required">Required</span></td>
-                    <td>List of MAVLink message type names to extract (e.g. <code>['GLOBAL_POSITION_INT']</code>). Typically the output of <code>find_relevant_data_types()</code>.</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div class="return-block">
-            <div class="block-label">Returns</div>
-            <p><code>Dict[str, dict]</code> — schema summary keyed by message type. Each value contains <code>rows</code> (int), and <code>columns</code> (dict of <code>col → {dtype, min, max}</code>). Numeric columns include <code>min</code> and <code>max</code>; non-numeric columns only include <code>dtype</code>.</p>
-          </div>
-
-          <div class="raises-block">
-            <div class="block-label">Raises</div>
-            <p><code>RuntimeError</code> — if <code>set_logfile_name()</code> has not been called first.</p>
-          </div>
-
-          <div>
-            <div class="code-block-label">Schema summary shape</div>
-            <div class="code-block">
-              <div class="code-block-topbar"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-              <pre><code>{
-  <span class="tok-str">"GLOBAL_POSITION_INT"</span>: {
-    <span class="tok-str">"rows"</span>: <span class="tok-num">4821</span>,
-    <span class="tok-str">"columns"</span>: {
-      <span class="tok-str">"time_s"</span>: {<span class="tok-str">"dtype"</span>: <span class="tok-str">"float64"</span>, <span class="tok-str">"min"</span>: <span class="tok-num">0.0</span>,   <span class="tok-str">"max"</span>: <span class="tok-num">623.4</span>},
-      <span class="tok-str">"alt"</span>:    {<span class="tok-str">"dtype"</span>: <span class="tok-str">"float64"</span>, <span class="tok-str">"min"</span>: <span class="tok-num">10.2</span>,  <span class="tok-str">"max"</span>: <span class="tok-num">142.7</span>},
-      <span class="tok-str">"msg_type"</span>:{<span class="tok-str">"dtype"</span>: <span class="tok-str">"object"</span>}
-    }
-  }
-}</code></pre>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- create_plot -->
-      <div class="method-card" id="create-plot">
-        <div class="method-header" onclick="toggleCard(this)">
-          <span class="method-badge badge-method">method</span>
-          <div class="method-sig">
-            <div class="method-name">
-              create_plot<span class="arg">(self, human_input: </span><span class="type-hint">str</span><span class="arg">, schema_summary: </span><span class="type-hint">Dict[str, dict]</span><span class="arg">) → </span><span class="type-hint">str</span>
-            </div>
-            <div class="method-summary">Phase 2a — ask the LLM to write a pandas + matplotlib plotting script.</div>
-          </div>
-          <svg class="method-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-        </div>
-        <div class="method-body">
-          <p class="method-desc">
-            Invokes <code>self._plot_chain</code> (a LangChain LCEL chain with a structured <code>PromptTemplate</code>) with the schema summary, Parquet path, output path, conversation history, and the user's request. The LLM is instructed to return only a fenced <code>```python```</code> block. The extracted script is written to <code>self.script_path</code> and cached in <code>self.last_code</code>.
-          </p>
-
-          <div>
-            <div class="param-section-label">Parameters</div>
-            <div class="param-table-wrap">
-              <table class="param-table">
-                <thead><tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
-                <tbody>
-                  <tr>
-                    <td class="p-name">human_input</td>
-                    <td class="p-type">str</td>
-                    <td><span class="p-required">Required</span></td>
-                    <td>The user's natural-language plot request.</td>
-                  </tr>
-                  <tr>
-                    <td class="p-name">schema_summary</td>
-                    <td class="p-type">Dict[str, dict]</td>
-                    <td><span class="p-required">Required</span></td>
-                    <td>Schema dict returned by <code>extract_dataframes()</code>. Injected verbatim into the LLM prompt.</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div class="return-block">
-            <div class="block-label">Returns</div>
-            <p><code>str</code> — the generated Python script. Also written to disk at <code>self.script_path</code>.</p>
-          </div>
-
-          <div class="notes-block">
-            <div class="block-label">LLM Rules enforced via prompt</div>
-            <p>
-              The LLM is instructed to: read data with <code>pd.read_parquet(parquet_path)</code>, filter by <code>msg_type</code> column, use <code>time_s</code> as the X axis (float64 seconds), save the figure to <code>output_file</code> at <code>dpi=400</code>, and <strong>never</strong> call <code>plt.show()</code>. Prohibited imports: <code>pymavlink</code>, <code>subprocess</code>, <code>os</code>, <code>sys</code>, <code>socket</code>.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <!-- run_script -->
-      <div class="method-card" id="run-script">
-        <div class="method-header" onclick="toggleCard(this)">
-          <span class="method-badge badge-method">method</span>
-          <div class="method-sig">
-            <div class="method-name">
-              run_script<span class="arg">(self) → </span><span class="type-hint">tuple</span>
-            </div>
-            <div class="method-summary">Phase 2b — execute the generated script with sandboxed self-healing.</div>
-          </div>
-          <svg class="method-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-        </div>
-        <div class="method-body">
-          <p class="method-desc">
-            Runs <code>self.script_path</code> via <code>subprocess.check_output(["python", self.script_path], stderr=STDOUT)</code>. On failure, calls <code>attempt_to_fix_script(error_text)</code> and retries up to <code>self.max_retries</code> times. Each fix cycle feeds the stderr and the failing script back to the LLM via <code>self._fix_chain</code>.
-          </p>
-
-          <div class="return-block">
-            <div class="block-label">Returns</div>
-            <p><code>(result, last_code)</code> — a tuple where <code>result</code> is <code>[[(None, (self.plot_path,))]]</code> (plot path wrapper) and <code>last_code</code> is the final script string. If all retries are exhausted, <code>last_code</code> is prefixed with a comment explaining the failure.</p>
-          </div>
-
-          <div>
-            <div class="code-block-label">Retry behaviour</div>
-            <div class="code-block">
-              <div class="code-block-topbar"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-              <pre><code><span class="tok-kw">for</span> attempt <span class="tok-kw">in</span> <span class="tok-fn">range</span>(<span class="tok-num">1</span>, self.max_retries <span class="tok-op">+</span> <span class="tok-num">1</span>):
-    <span class="tok-kw">try</span>:
-        subprocess.<span class="tok-fn">check_output</span>([<span class="tok-str">"python"</span>, self.script_path], stderr<span class="tok-op">=</span>STDOUT)
-        <span class="tok-kw">break</span>  <span class="tok-cmt"># success — exit loop</span>
-    <span class="tok-kw">except</span> CalledProcessError <span class="tok-kw">as</span> exc:
-        <span class="tok-kw">if</span> attempt <span class="tok-op">&lt;</span> self.max_retries:
-            self.<span class="tok-fn">attempt_to_fix_script</span>(exc.output.<span class="tok-fn">decode</span>())</code></pre>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- attempt_to_fix_script -->
-      <div class="method-card" id="attempt-to-fix-script">
-        <div class="method-header" onclick="toggleCard(this)">
-          <span class="method-badge badge-method">method</span>
-          <div class="method-sig">
-            <div class="method-name">
-              attempt_to_fix_script<span class="arg">(self, error_message: </span><span class="type-hint">str</span><span class="arg">) → </span><span class="type-hint">str</span>
-            </div>
-            <div class="method-summary">Feed the traceback back to the LLM and rewrite the failing script.</div>
-          </div>
-          <svg class="method-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-        </div>
-        <div class="method-body">
-          <p class="method-desc">
-            Reads the current failing script from <code>self.script_path</code>, reconstructs the schema summary from <code>self._extractor.frames</code>, then invokes <code>self._fix_chain</code> with the script, error text, schema, and Parquet path. The corrected script is written back to <code>self.script_path</code>. Called automatically by <code>run_script()</code> — you rarely need to call this directly.
-          </p>
-
-          <div>
-            <div class="param-section-label">Parameters</div>
-            <div class="param-table-wrap">
-              <table class="param-table">
-                <thead><tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
-                <tbody>
-                  <tr>
-                    <td class="p-name">error_message</td>
-                    <td class="p-type">str</td>
-                    <td><span class="p-required">Required</span></td>
-                    <td>The stderr or exception text from the failed subprocess run.</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div class="return-block">
-            <div class="block-label">Returns</div>
-            <p><code>str</code> — the fixed (or best-effort) script. Also written to <code>self.script_path</code>.</p>
-          </div>
-
-          <div class="notes-block">
-            <div class="block-label">Note</div>
-            <p>If the LLM fix request itself fails (e.g. network error), the original failing script is returned unchanged and the error is logged at <code>ERROR</code> level.</p>
+            <p><code>FileNotFoundError</code> — the file doesn't exist. <code>FileValidationError</code> — unsupported extension, empty, larger than 200 MB, or a symlink. <code>ValueError</code> — the file can't be parsed as its format.</p>
           </div>
         </div>
       </div>
     </section>
-
-    <!-- ── Static Helpers ─────────────────────────────────────────────── -->
-    <section class="api-section" id="extract-code-snippets">
+    <section class="api-section" id="flightlog">
       <h2 class="section-title">
-        Static Helpers
-        <a href="#extract-code-snippets" class="section-anchor">#</a>
+        <code>class FlightLog</code>
+        <a href="#flightlog" class="section-anchor" aria-label="Link to section">#</a>
       </h2>
-      <p class="section-desc">Utility static methods on <code>PlotCreator</code> — can be called without an instance.</p>
+      <p class="section-desc">A parsed flight log: one time-aligned DataFrame per message type, with units. Create one with <code>mavpose.load()</code>.</p>
 
-      <div class="method-card">
+      <div class="method-card" id="fl-messages">
         <div class="method-header" onclick="toggleCard(this)">
-          <span class="method-badge badge-static">static</span>
+          <span class="method-badge badge-method">method</span>
           <div class="method-sig">
             <div class="method-name">
-              extract_code_snippets<span class="arg">(text: </span><span class="type-hint">str</span><span class="arg">) → </span><span class="type-hint">list</span>
+              messages<span class="arg">(</span><span class="arg">)</span><span class="arg"> → </span><span class="type-hint">List[str]</span>
             </div>
-            <div class="method-summary">Extract fenced ```python``` blocks from an LLM response string.</div>
+            <div class="method-summary">Sorted names of the message types (topics) in the log.</div>
           </div>
           <svg class="method-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
         </div>
         <div class="method-body">
-          <p class="method-desc">
-            Uses <code>re.findall(r"```.*?\n(.*?)```", text, re.DOTALL | re.MULTILINE)</code> to extract all fenced code blocks from the LLM response. Falls back to <code>[text]</code> when no fences are found, so downstream code always receives a non-empty list.
-          </p>
-
-          <div>
-            <div class="param-section-label">Parameters</div>
-            <div class="param-table-wrap">
-              <table class="param-table">
-                <thead><tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
-                <tbody>
-                  <tr>
-                    <td class="p-name">text</td>
-                    <td class="p-type">str</td>
-                    <td><span class="p-required">Required</span></td>
-                    <td>Raw LLM response string, potentially containing one or more fenced code blocks.</td>
-                  </tr>
-                </tbody>
-              </table>
+          <p class="method-desc">Also: <code>len(log)</code>, <code>"ATTITUDE" in log</code> and <code>for msg in log</code> work as you'd expect.</p>
+        </div>
+      </div>
+      <div class="method-card" id="fl-fields">
+        <div class="method-header" onclick="toggleCard(this)">
+          <span class="method-badge badge-method">method</span>
+          <div class="method-sig">
+            <div class="method-name">
+              fields<span class="arg">(</span><span class="arg">msg_type: </span><span class="type-hint">str</span><span class="arg">)</span><span class="arg"> → </span><span class="type-hint">List[str]</span>
             </div>
+            <div class="method-summary">Data fields of a message type, excluding time_s and msg_type.</div>
           </div>
-
-          <div class="return-block">
-            <div class="block-label">Returns</div>
-            <p><code>list</code> — list of extracted code snippet strings. Falls back to <code>[text]</code> when no fences are found.</p>
+          <svg class="method-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="method-body">
+          <div class="raises-block">
+            <div class="block-label">Raises</div>
+            <p><code>KeyError</code> — the message type or field doesn't exist. The message suggests close matches, e.g. <em>No message type 'GLOBAL_POS'. Did you mean: GLOBAL_POSITION_INT?</em></p>
           </div>
-
+        </div>
+      </div>
+      <div class="method-card" id="fl-frame">
+        <div class="method-header" onclick="toggleCard(this)">
+          <span class="method-badge badge-method">method</span>
+          <div class="method-sig">
+            <div class="method-name">
+              frame<span class="arg">(</span><span class="arg">msg_type: </span><span class="type-hint">str</span><span class="arg">)</span><span class="arg"> → </span><span class="type-hint">pd.DataFrame</span>
+            </div>
+            <div class="method-summary">All rows of a message type. Also available as log[msg_type].</div>
+          </div>
+          <svg class="method-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="method-body">
+          <p class="method-desc">Columns are <code>time_s</code>, <code>msg_type</code> and one column per field. Returns a copy, so it is safe to modify.</p>
+          <div class="raises-block">
+            <div class="block-label">Raises</div>
+            <p><code>KeyError</code> — the message type or field doesn't exist. The message suggests close matches, e.g. <em>No message type 'GLOBAL_POS'. Did you mean: GLOBAL_POSITION_INT?</em></p>
+          </div>
+        </div>
+      </div>
+      <div class="method-card" id="fl-series">
+        <div class="method-header" onclick="toggleCard(this)">
+          <span class="method-badge badge-method">method</span>
+          <div class="method-sig">
+            <div class="method-name">
+              series<span class="arg">(</span><span class="arg">msg_type: </span><span class="type-hint">str</span><span class="arg">, </span><span class="arg">field: </span><span class="type-hint">str</span><span class="arg">)</span><span class="arg"> → </span><span class="type-hint">pd.Series</span>
+            </div>
+            <div class="method-summary">One field as a Series indexed by time_s, with its unit attached.</div>
+          </div>
+          <svg class="method-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="method-body">
+          <p class="method-desc">The unit is in <code>series.attrs["unit"]</code> (<code>None</code> if unknown) and the source in <code>series.attrs["msg_type"]</code>. Ready for any pandas or matplotlib workflow.</p>
           <div>
-            <div class="code-block-label">Example</div>
             <div class="code-block">
               <div class="code-block-topbar"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-              <pre><code>snippets <span class="tok-op">=</span> PlotCreator.<span class="tok-fn">extract_code_snippets</span>(llm_response)
-code <span class="tok-op">=</span>               <pre><code>snippets <span class="tok-op">=</span> PlotCreator.<span class="tok-fn">extract_code_snippets</span>(llm_response)
-code <span class="tok-op">=</span> snippets[<span class="tok-num">0</span>]  <span class="tok-cmt"># first (and usually only) block</span>
-
-<span class="tok-cmt"># Fallback: if the LLM returned raw code without fences</span>
-assert <span class="tok-fn">len</span>(snippets) <span class="tok-op">&gt;</span> <span class="tok-num">0</span>  <span class="tok-cmt"># always True — falls back to [text]</span></code></pre>
+              <pre><code>alt <span class="tok-op">=</span> log.<span class="tok-fn">series</span>(<span class="tok-str">"GLOBAL_POSITION_INT"</span>, <span class="tok-str">"relative_alt"</span>)
+alt.<span class="tok-fn">plot</span>(ylabel<span class="tok-op">=</span><span class="tok-str">f"altitude ({alt.attrs['unit']})"</span>)</code></pre>
+            </div>
+          </div>
+          <div class="raises-block">
+            <div class="block-label">Raises</div>
+            <p><code>KeyError</code> — the message type or field doesn't exist. The message suggests close matches, e.g. <em>No message type 'GLOBAL_POS'. Did you mean: GLOBAL_POSITION_INT?</em></p>
+          </div>
+        </div>
+      </div>
+      <div class="method-card" id="fl-unit">
+        <div class="method-header" onclick="toggleCard(this)">
+          <span class="method-badge badge-method">method</span>
+          <div class="method-sig">
+            <div class="method-name">
+              unit<span class="arg">(</span><span class="arg">msg_type: </span><span class="type-hint">str</span><span class="arg">, </span><span class="arg">field: </span><span class="type-hint">str</span><span class="arg">)</span><span class="arg"> → </span><span class="type-hint">Optional[str]</span>
+            </div>
+            <div class="method-summary">Unit of a field after conversion, e.g. "m", or None if unknown or dimensionless.</div>
+          </div>
+          <svg class="method-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="method-body">
+          <div>
+            <div class="code-block">
+              <div class="code-block-topbar"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre><code>log.<span class="tok-fn">unit</span>(<span class="tok-str">"GLOBAL_POSITION_INT"</span>, <span class="tok-str">"alt"</span>)            <span class="tok-cmt"># 'm'</span>
+raw <span class="tok-op">=</span> mavpose.<span class="tok-fn">load</span>(<span class="tok-str">"flight.tlog"</span>, convert_units<span class="tok-op">=</span><span class="tok-kw">False</span>)
+raw.<span class="tok-fn">unit</span>(<span class="tok-str">"GLOBAL_POSITION_INT"</span>, <span class="tok-str">"alt"</span>)            <span class="tok-cmt"># 'mm'</span></code></pre>
             </div>
           </div>
         </div>
       </div>
-
-      <!-- write_plot_script -->
-      <div class="method-card" id="write-plot-script">
+      <div class="method-card" id="fl-units">
         <div class="method-header" onclick="toggleCard(this)">
-          <span class="method-badge badge-static">static</span>
+          <span class="method-badge badge-prop">property</span>
           <div class="method-sig">
             <div class="method-name">
-              write_plot_script<span class="arg">(filename: </span><span class="type-hint">str</span><span class="arg">, text: </span><span class="type-hint">str</span><span class="arg">) → </span><span class="type-hint">None</span>
+              units
             </div>
-            <div class="method-summary">Write a script string to disk at the given path.</div>
+            <div class="method-summary">Every known unit: {msg_type: {field: unit}}.</div>
           </div>
           <svg class="method-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
         </div>
         <div class="method-body">
-          <p class="method-desc">
-            Simple file-write helper. Opens <code>filename</code> in write mode (UTF-8) and writes <code>text</code>. Used internally after every LLM generation and fix cycle to persist the script to <code>self.script_path</code>.
-          </p>
-
+          <p class="method-desc">Fields with no known unit are omitted.</p>
+        </div>
+      </div>
+      <div class="method-card" id="fl-unknown">
+        <div class="method-header" onclick="toggleCard(this)">
+          <span class="method-badge badge-prop">property</span>
+          <div class="method-sig">
+            <div class="method-name">
+              unknown_counts
+            </div>
+            <div class="method-summary">How many values were replaced by NaN, per message type and field.</div>
+          </div>
+          <svg class="method-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="method-body">
           <div>
-            <div class="param-section-label">Parameters</div>
-            <div class="param-table-wrap">
-              <table class="param-table">
-                <thead><tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
-                <tbody>
-                  <tr>
-                    <td class="p-name">filename</td>
-                    <td class="p-type">str</td>
-                    <td><span class="p-required">Required</span></td>
-                    <td>Destination file path (e.g. <code>"logs/plot.py"</code>).</td>
-                  </tr>
-                  <tr>
-                    <td class="p-name">text</td>
-                    <td class="p-type">str</td>
-                    <td><span class="p-required">Required</span></td>
-                    <td>Python source code string to write.</td>
-                  </tr>
-                </tbody>
-              </table>
+            <div class="code-block">
+              <div class="code-block-topbar"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre><code>log.unknown_counts
+<span class="tok-cmt"># {'GPS_RAW_INT': {'epv': 6338}}   this GPS never reports vertical accuracy</span></code></pre>
             </div>
           </div>
-
+        </div>
+      </div>
+      <div class="method-card" id="fl-stats">
+        <div class="method-header" onclick="toggleCard(this)">
+          <span class="method-badge badge-prop">property</span>
+          <div class="method-sig">
+            <div class="method-name">
+              stats
+            </div>
+            <div class="method-summary">Parse counters: messages, bad_data, errors, unknown_values.</div>
+          </div>
+          <svg class="method-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="method-body">
+          <p class="method-desc"><code>bad_data</code> counts corrupt packets that were skipped; <code>errors</code> counts reader exceptions recovered from. A warning is logged when either is non-zero. Parsing only gives up after 1,000 consecutive read errors.</p>
+          <div>
+            <div class="code-block">
+              <div class="code-block-topbar"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre><code>log.stats
+<span class="tok-cmt"># {'messages': 163851, 'bad_data': 0, 'errors': 0, 'unknown_values': 6338}</span></code></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="method-card" id="fl-duration">
+        <div class="method-header" onclick="toggleCard(this)">
+          <span class="method-badge badge-prop">property</span>
+          <div class="method-sig">
+            <div class="method-name">
+              duration_s
+            </div>
+            <div class="method-summary">Seconds between the first and last sample, across all message types.</div>
+          </div>
+          <svg class="method-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="method-body">
+          <p class="method-desc"><code>float</code>; <code>0.0</code> for an empty log.</p>
+        </div>
+      </div>
+      <div class="method-card" id="fl-summary">
+        <div class="method-header" onclick="toggleCard(this)">
+          <span class="method-badge badge-method">method</span>
+          <div class="method-sig">
+            <div class="method-name">
+              summary<span class="arg">(</span><span class="arg">msg_types: </span><span class="type-hint">Optional[List[str]]</span><span class="arg"> = None</span><span class="arg">)</span><span class="arg"> → </span><span class="type-hint">Dict[str, dict]</span>
+            </div>
+            <div class="method-summary">Per-column dtype, unit, min/max and unknown count — the schema MAVPose gives to language models.</div>
+          </div>
+          <svg class="method-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="method-body">
+          <div>
+            <div class="code-block">
+              <div class="code-block-topbar"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre><code>log.<span class="tok-fn">summary</span>([<span class="tok-str">"SYS_STATUS"</span>])[<span class="tok-str">"SYS_STATUS"</span>][<span class="tok-str">"columns"</span>][<span class="tok-str">"current_battery"</span>]
+<span class="tok-cmt"># {'dtype': 'float64', 'unit': 'A', 'min': 10.5, 'max': 10.5, 'unknown': 3}</span></code></pre>
+            </div>
+          </div>
+          <div class="raises-block">
+            <div class="block-label">Raises</div>
+            <p><code>KeyError</code> — a requested message type doesn't exist.</p>
+          </div>
+        </div>
+      </div>
+      <div class="method-card" id="fl-parquet">
+        <div class="method-header" onclick="toggleCard(this)">
+          <span class="method-badge badge-method">method</span>
+          <div class="method-sig">
+            <div class="method-name">
+              to_parquet<span class="arg">(</span><span class="arg">path: </span><span class="type-hint">str</span><span class="arg">, </span><span class="arg">msg_types: </span><span class="type-hint">Optional[List[str]]</span><span class="arg"> = None</span><span class="arg">)</span><span class="arg"> → </span><span class="type-hint">Dict[str, dict]</span>
+            </div>
+            <div class="method-summary">Write message types (all by default) to one Parquet file.</div>
+          </div>
+          <svg class="method-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="method-body">
+          <p class="method-desc">Rows from different message types are told apart by the <code>msg_type</code> column.</p>
           <div class="return-block">
             <div class="block-label">Returns</div>
-            <p><code>None</code>. Raises <code>OSError</code> if the path is not writable.</p>
+            <p>The <code>summary()</code> of what was written.</p>
           </div>
+          <div class="raises-block">
+            <div class="block-label">Raises</div>
+            <p><code>KeyError</code> — a requested message type doesn't exist.</p>
+          </div>
+        </div>
+      </div>
+      <div class="method-card" id="fl-attrs">
+        <div class="method-header" onclick="toggleCard(this)">
+          <span class="method-badge badge-prop">property</span>
+          <div class="method-sig">
+            <div class="method-name">
+              path, format
+            </div>
+            <div class="method-summary">The log's path, and its format: "mavlink", "dataflash" or "ulog".</div>
+          </div>
+          <svg class="method-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="method-body">
+          <p class="method-desc">Plain attributes: <code>log.path</code> (<code>str</code>) and <code>log.format</code> (<code>str</code>).</p>
         </div>
       </div>
     </section>
-
-    <!-- ── LogExtractor Class ──────────────────────────────────────────── -->
     <section class="api-section" id="logextractor">
       <h2 class="section-title">
         <code>class LogExtractor</code>
-        <a href="#logextractor" class="section-anchor">#</a>
+        <a href="#logextractor" class="section-anchor" aria-label="Link to section">#</a>
       </h2>
-      <p class="section-desc">
-        Headless database-query layer for MAVLink flight logs. Parses <code>.tlog</code> / <code>.bin</code> / <code>.log</code> files into per-message-type pandas DataFrames with a normalised <code>time_s</code> column, and exports a clean Parquet file for LLM consumption.
-        Defined in <code>mavpose/log_extractor.py</code>.
-      </p>
+      <p class="section-desc">The extractor <code>load()</code> is built on.</p>
 
-      <!-- LogExtractor __init__ -->
-      <div class="method-card" id="logextractor-init">
+      <div class="method-card" id="le-init">
         <div class="method-header" onclick="toggleCard(this)">
           <span class="method-badge badge-init">init</span>
           <div class="method-sig">
             <div class="method-name">
-              __init__<span class="arg">(self, log_path: </span><span class="type-hint">str</span><span class="arg">)</span>
+              LogExtractor<span class="arg">(</span><span class="arg">log_path: </span><span class="type-hint">str</span><span class="arg">, </span><span class="arg">convert_units: </span><span class="type-hint">bool</span><span class="arg"> = True</span><span class="arg">, </span><span class="arg">filter_unknown: </span><span class="type-hint">bool</span><span class="arg"> = True</span><span class="arg">)</span>
             </div>
-            <div class="method-summary">Initialise the extractor and validate the log file exists.</div>
+            <div class="method-summary">Lower-level extractor behind load(). Use it when you need a schema scan without loading rows.</div>
           </div>
           <svg class="method-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
         </div>
         <div class="method-body">
-          <p class="method-desc">
-            Checks that <code>log_path</code> exists on disk and stores it. Internal state (<code>_frames</code>, <code>_schema</code>, <code>_extracted</code>) is initialised but not populated until <code>extract_all()</code> or <code>schema_only()</code> is called.
-          </p>
-
-          <div>
-            <div class="param-section-label">Parameters</div>
-            <div class="param-table-wrap">
-              <table class="param-table">
-                <thead><tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
-                <tbody>
-                  <tr>
-                    <td class="p-name">log_path</td>
-                    <td class="p-type">str</td>
-                    <td><span class="p-required">Required</span></td>
-                    <td>Absolute or relative path to a MAVLink <code>.tlog</code>, <code>.bin</code>, or <code>.log</code> file.</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
+          <p class="method-desc">Same options as <code>load()</code>. Does not validate the file; call <code>validate_mavlink_file()</code> first for untrusted input.</p>
           <div class="raises-block">
             <div class="block-label">Raises</div>
-            <p><code>FileNotFoundError</code> — if <code>log_path</code> does not exist.</p>
+            <p><code>FileNotFoundError</code> — the file doesn't exist.</p>
           </div>
         </div>
       </div>
-
-      <!-- schema_only -->
-      <div class="method-card" id="schema-only">
+      <div class="method-card" id="le-schema">
         <div class="method-header" onclick="toggleCard(this)">
           <span class="method-badge badge-method">method</span>
           <div class="method-sig">
             <div class="method-name">
-              schema_only<span class="arg">(self) → </span><span class="type-hint">Dict[str, dict]</span>
+              schema_only<span class="arg">(</span><span class="arg">)</span><span class="arg"> → </span><span class="type-hint">Dict[str, dict]</span>
             </div>
-            <div class="method-summary">Fast single-pass scan — collects message-type metadata without allocating DataFrames.</div>
+            <div class="method-summary">Fast single pass that collects message metadata without storing rows.</div>
           </div>
           <svg class="method-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
         </div>
         <div class="method-body">
-          <p class="method-desc">
-            Opens the log with <code>pymavlink.mavutil.mavlink_connection()</code> and performs a single pass, recording message type names, field names, Python type strings, and message counts — <strong>without</strong> building any DataFrame rows. This makes it fast enough to run before embedding without significant memory overhead. Results are stored in <code>self._schema</code> and also returned.
-          </p>
-
           <div class="return-block">
             <div class="block-label">Returns</div>
-            <p><code>Dict[str, dict]</code> — mapping of <code>msg_type → {"count": int, "fields": {name: type_str}}</code>. Suitable for building ChromaDB embeddings in <code>PlotCreator._create_embeddings()</code>.</p>
+            <p><code>{msg_type: {"count": int, "fields": {name: type}, "units": {name: unit}}}</code></p>
           </div>
+        </div>
+      </div>
+      <div class="method-card" id="le-extract">
+        <div class="method-header" onclick="toggleCard(this)">
+          <span class="method-badge badge-method">method</span>
+          <div class="method-sig">
+            <div class="method-name">
+              extract_all<span class="arg">(</span><span class="arg">)</span><span class="arg"> → </span><span class="type-hint">Dict[str, pd.DataFrame]</span>
+            </div>
+            <div class="method-summary">Full extraction: one DataFrame per message type.</div>
+          </div>
+          <svg class="method-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="method-body">
+          <div class="return-block">
+            <div class="block-label">Returns</div>
+            <p><code>{msg_type: DataFrame}</code> with columns <code>time_s</code>, <code>msg_type</code> and one per field. Also stored in <code>.frames</code>.</p>
+          </div>
+        </div>
+      </div>
+      <div class="method-card" id="le-summary">
+        <div class="method-header" onclick="toggleCard(this)">
+          <span class="method-badge badge-method">method</span>
+          <div class="method-sig">
+            <div class="method-name">
+              summary<span class="arg">(</span><span class="arg">msg_types: </span><span class="type-hint">Optional[List[str]]</span><span class="arg"> = None</span><span class="arg">)</span><span class="arg"> → </span><span class="type-hint">Dict[str, dict]</span>
+            </div>
+            <div class="method-summary">Same shape as FlightLog.summary().</div>
+          </div>
+          <svg class="method-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="method-body">
+          <p class="method-desc">Runs <code>extract_all()</code> first if needed.</p>
+        </div>
+      </div>
+      <div class="method-card" id="le-export">
+        <div class="method-header" onclick="toggleCard(this)">
+          <span class="method-badge badge-method">method</span>
+          <div class="method-sig">
+            <div class="method-name">
+              export_parquet<span class="arg">(</span><span class="arg">msg_types: </span><span class="type-hint">List[str]</span><span class="arg">, </span><span class="arg">output_path: </span><span class="type-hint">str</span><span class="arg">)</span><span class="arg"> → </span><span class="type-hint">Dict[str, dict]</span>
+            </div>
+            <div class="method-summary">Write the given message types to one Parquet file.</div>
+          </div>
+          <svg class="method-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="method-body">
+          <p class="method-desc">Types not present in the log are skipped with a warning.</p>
+          <div class="return-block">
+            <div class="block-label">Returns</div>
+            <p>The <code>summary()</code> of what was written.</p>
+          </div>
+        </div>
+      </div>
+      <div class="method-card" id="le-props">
+        <div class="method-header" onclick="toggleCard(this)">
+          <span class="method-badge badge-prop">property</span>
+          <div class="method-sig">
+            <div class="method-name">
+              frames, units, raw_units, unknown_counts, stats
+            </div>
+            <div class="method-summary">Results of the last extraction.</div>
+          </div>
+          <svg class="method-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="method-body">
+          <p class="method-desc"><code>raw_units</code> gives the units as stored in the log, before conversion; <code>units</code> gives them after.</p>
+        </div>
+      </div>
+    </section>
+    <section class="api-section" id="validation">
+      <h2 class="section-title">
+        Validation
+        <a href="#validation" class="section-anchor" aria-label="Link to section">#</a>
+      </h2>
+      <p class="section-desc">Input checks, also run by <code>load()</code>.</p>
 
-          <div>
-            <div class="code-block-label">Return shape</div>
-            <div class="code-block">
-              <div class="code-block-topbar"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <div class="method-card" id="validate">
+        <div class="method-header" onclick="toggleCard(this)">
+          <span class="method-badge badge-static">function</span>
+          <div class="method-sig">
+            <div class="method-name">
+              mavpose.validate_mavlink_file<span class="arg">(</span><span class="arg">path: </span><span class="type-hint">str</span><span class="arg">)</span><span class="arg"> → </span><span class="type-hint">None</span>
+            </div>
+            <div class="method-summary">Check a file before parsing it.</div>
+          </div>
+          <svg class="method-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="method-body">
+          <p class="method-desc">Accepts <code>.tlog</code>, <code>.bin</code>, <code>.log</code> and <code>.ulg</code>. Rejects symlinks, empty files and files over 200 MB. <code>load()</code> calls it for you.</p>
+          <div class="raises-block">
+            <div class="block-label">Raises</div>
+            <p><code>FileNotFoundError</code> — the file doesn't exist. <code>mavpose.FileValidationError</code> (a <code>ValueError</code>) — any other failed check.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section class="api-section" id="mcp">
+      <h2 class="section-title">
+        MCP server — <code>mavpose-mcp</code>
+        <a href="#mcp" class="section-anchor" aria-label="Link to section">#</a>
+      </h2>
+      <p class="section-desc">A Model Context Protocol server, so any MCP-capable assistant or agent framework can read your logs with MAVPose's guarantees. Needs <code>[mcp]</code>.</p>
+
+      <div>
+            <div class="code-block-label">Run</div>
+<div class="code-block">
+              <div class="code-block-topbar"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre><code>mavpose-mcp <span class="tok-op">--</span>root ~/flight-logs
+<span class="tok-cmt"># Pass --root several times for several folders. Without it, the server</span>
+<span class="tok-cmt"># uses $MAVPOSE_MCP_ROOTS (":"-separated; ";" on Windows), else the current folder.</span></code></pre>
+            </div>
+          </div>
+      <div style="margin-top: var(--space-6);"></div>
+      <div>
+            <div class="code-block-label">Client configuration (file and key names vary by client)</div>
+<div class="code-block">
+              <div class="code-block-topbar"><span class="code-lang">json</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
               <pre><code>{
-  <span class="tok-str">"GLOBAL_POSITION_INT"</span>: {
-    <span class="tok-str">"count"</span>: <span class="tok-num">4821</span>,
-    <span class="tok-str">"fields"</span>: {
-      <span class="tok-str">"time_boot_ms"</span>: <span class="tok-str">"int"</span>,
-      <span class="tok-str">"lat"</span>:          <span class="tok-str">"int"</span>,
-      <span class="tok-str">"lon"</span>:          <span class="tok-str">"int"</span>,
-      <span class="tok-str">"alt"</span>:          <span class="tok-str">"int"</span>,
-      <span class="tok-str">"relative_alt"</span>: <span class="tok-str">"int"</span>
+  <span class="tok-str">"mcpServers"</span>: {
+    <span class="tok-str">"mavpose"</span>: {
+      <span class="tok-str">"command"</span>: <span class="tok-str">"mavpose-mcp"</span>,
+      <span class="tok-str">"args"</span>: [<span class="tok-str">"--root"</span>, <span class="tok-str">"/home/you/flight-logs"</span>]
     }
   }
 }</code></pre>
             </div>
           </div>
-        </div>
-      </div>
-
-      <!-- extract_all -->
-      <div class="method-card" id="extract-all">
-        <div class="method-header" onclick="toggleCard(this)">
-          <span class="method-badge badge-method">method</span>
-          <div class="method-sig">
-            <div class="method-name">
-              extract_all<span class="arg">(self) → </span><span class="type-hint">Dict[str, pd.DataFrame]</span>
-            </div>
-            <div class="method-summary">Full two-pass extraction — builds time-aligned DataFrames for every message type.</div>
-          </div>
-          <svg class="method-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-        </div>
-        <div class="method-body">
-          <p class="method-desc">
-            Performs a <strong>full parse</strong> of the MAVLink log in two phases:
-          </p>
-          <ul style="font-size: var(--text-sm); color: var(--color-text-muted); padding-left: var(--space-5); margin: var(--space-2) 0 var(--space-3); line-height: 1.85;">
-            <li><strong>Pass 1</strong> — collects raw row-dicts per message type.</li>
-            <li><strong>Pass 2</strong> — builds DataFrames, normalises <code>time_s</code> (seconds from first message), casts all numeric columns to <code>float64</code>, drops non-scalar fields (arrays, nested structs), and sorts by <code>time_s</code>.</li>
-          </ul>
-          <p class="method-desc">
-            Timestamps are resolved from MAVLink fields in priority order: <code>time_usec</code> → <code>time_unix_usec</code> → <code>time_us</code> → <code>usec</code>. If none are present, a monotonic fallback (<code>seq × 0.001 s</code>) is used.
-          </p>
-
-          <div class="return-block">
-            <div class="block-label">Returns</div>
-            <p><code>Dict[str, pd.DataFrame]</code> — mapping of <code>msg_type → DataFrame</code>. Every DataFrame has at minimum <code>time_s</code> (float64) and <code>msg_type</code> (str) columns, plus all scalar fields from that message type.</p>
-          </div>
-
-          <div>
-            <div class="code-block-label">DataFrame column contract</div>
-            <div class="code-block">
-              <div class="code-block-topbar"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-              <pre><code>df <span class="tok-op">=</span> extractor.frames[<span class="tok-str">"GLOBAL_POSITION_INT"</span>]
-df.dtypes
-<span class="tok-cmt"># time_s      float64    ← seconds from log start</span>
-<span class="tok-cmt"># msg_type    object     ← always "GLOBAL_POSITION_INT"</span>
-<span class="tok-cmt"># lat         float64</span>
-<span class="tok-cmt"># lon         float64</span>
-<span class="tok-cmt"># alt         float64</span>
-<span class="tok-cmt"># relative_alt float64</span></code></pre>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- export_parquet -->
-      <div class="method-card" id="export-parquet">
-        <div class="method-header" onclick="toggleCard(this)">
-          <span class="method-badge badge-method">method</span>
-          <div class="method-sig">
-            <div class="method-name">
-              export_parquet<span class="arg">(self, msg_types: </span><span class="type-hint">List[str]</span><span class="arg">, output_path: </span><span class="type-hint">str</span><span class="arg">) → </span><span class="type-hint">Dict[str, dict]</span>
-            </div>
-            <div class="method-summary">Export selected message types to a single time-aligned Parquet file.</div>
-          </div>
-          <svg class="method-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-        </div>
-        <div class="method-body">
-          <p class="method-desc">
-            Concatenates the DataFrames for the requested <code>msg_types</code>, sorts by <code>time_s</code>, and writes a single Parquet file via <code>pyarrow</code>. Unknown types (not found in the log) are silently skipped with a warning. Builds and returns a schema summary dict with per-column <code>dtype</code>, <code>min</code>, and <code>max</code> — this is injected directly into the LLM prompt by <code>PlotCreator.extract_dataframes()</code>.
-          </p>
-
-          <div>
-            <div class="param-section-label">Parameters</div>
-            <div class="param-table-wrap">
-              <table class="param-table">
-                <thead><tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
-                <tbody>
-                  <tr>
-                    <td class="p-name">msg_types</td>
-                    <td class="p-type">List[str]</td>
-                    <td><span class="p-required">Required</span></td>
-                    <td>MAVLink message type names to include. Types absent from the log are skipped with a warning.</td>
-                  </tr>
-                  <tr>
-                    <td class="p-name">output_path</td>
-                    <td class="p-type">str</td>
-                    <td><span class="p-required">Required</span></td>
-                    <td>Destination <code>.parquet</code> file path. Parent directories are created automatically.</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div class="return-block">
-            <div class="block-label">Returns</div>
-            <p><code>Dict[str, dict]</code> — schema summary. Numeric columns include <code>min</code> and <code>max</code>; non-numeric columns include only <code>dtype</code>.</p>
-          </div>
-
-          <div class="raises-block">
-            <div class="block-label">Raises</div>
-            <p><code>RuntimeError</code> — if <code>extract_all()</code> has not been called first.<br>
-            <code>ValueError</code> — if none of the requested <code>msg_types</code> were found in the log.</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- frames property -->
-      <div class="method-card" id="frames-prop">
-        <div class="method-header" onclick="toggleCard(this)">
-          <span class="method-badge badge-prop">prop</span>
-          <div class="method-sig">
-            <div class="method-name">
-              frames<span class="arg"> → </span><span class="type-hint">Dict[str, pd.DataFrame]</span>
-            </div>
-            <div class="method-summary">Read-only property — returns the extracted frames dict.</div>
-          </div>
-          <svg class="method-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-        </div>
-        <div class="method-body">
-          <p class="method-desc">
-            Returns <code>self._frames</code> — the dict populated by <code>extract_all()</code>. Returns an empty dict <code>{}</code> until <code>extract_all()</code> has been called. Used by <code>PlotCreator.attempt_to_fix_script()</code> to rebuild the schema summary for the fix prompt.
-          </p>
-
-          <div class="return-block">
-            <div class="block-label">Returns</div>
-            <p><code>Dict[str, pd.DataFrame]</code> — empty until <code>extract_all()</code> is called.</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ── Module Constants ───────────────────────────────────────────── -->
-    <section class="api-section" id="constants">
-      <h2 class="section-title">
-        Module Constants
-        <a href="#constants" class="section-anchor">#</a>
-      </h2>
-      <p class="section-desc">Top-level constants defined in <code>mavpose/PlotCreator.py</code> and <code>mavpose/safe_executor.py</code>. Override via environment variables where applicable.</p>
-
+      <div style="margin-top: var(--space-6);"></div>
       <table class="cli-table">
-        <thead>
-          <tr>
-            <th>Constant</th>
-            <th>Module</th>
-            <th>Value</th>
-            <th>Description</th>
-          </tr>
-        </thead>
+        <thead><tr><th>Tool</th><th>Returns</th><th>Writes?</th></tr></thead>
         <tbody>
-          <tr>
-            <td><code>VALID_EXTENSIONS</code></td>
-            <td><code>PlotCreator.py</code></td>
-            <td><code>{'.tlog', '.bin', '.log'}</code></td>
-            <td>Accepted MAVLink log file extensions. Checked by <code>set_logfile_name()</code>.</td>
-          </tr>
-          <tr>
-            <td><code>OPENROUTER_BASE_URL</code></td>
-            <td><code>PlotCreator.py</code></td>
-            <td><code>"https://openrouter.ai/api/v1"</code></td>
-            <td>Base URL for the OpenRouter API, used by both ChatOpenAI and OpenAIEmbeddings.</td>
-          </tr>
-          <tr>
-            <td><code>DEFAULT_MODEL</code></td>
-            <td><code>PlotCreator.py</code></td>
-            <td><code>"z-ai/glm-5.1"</code></td>
-            <td>Default LLM model slug. Overridden by <code>OPENROUTER_MODEL</code> env var.</td>
-          </tr>
-          <tr>
-            <td><code>EMBEDDING_MODEL</code></td>
-            <td><code>PlotCreator.py</code></td>
-            <td><code>"openai/text-embedding-3-small"</code></td>
-            <td>Embedding model used to build the ChromaDB vector index.</td>
-          </tr>
-          <tr>
-            <td><code>BLOCKED_MODULES</code></td>
-            <td><code>safe_executor.py</code></td>
-            <td><em>See below</em></td>
-            <td>Set of module names the generated script is forbidden to import directly.</td>
-          </tr>
+          <tr><td><code>list_logs</code></td><td>Log files in the allowed folders, with format and size</td><td>no</td></tr>
+          <tr><td><code>summarize_flight</code></td><td>Duration; altitude, speed, battery and GPS ranges (each with source field and unit); parse stats; unknown counts; vehicle warnings</td><td>no</td></tr>
+          <tr><td><code>list_messages</code></td><td>Message types with row counts, field counts and time range</td><td>no</td></tr>
+          <tr><td><code>describe_message</code></td><td>One message type's fields: dtype, unit, min, max, unknown count</td><td>no</td></tr>
+          <tr><td><code>get_series</code></td><td>Fields over a time window (<code>start_s</code>/<code>end_s</code>) on <code>time_s</code>, with units. At most <code>max_points</code> samples (500 default, 5,000 max); min, max and mean cover every sample</td><td>no</td></tr>
+          <tr><td><code>get_log_messages</code></td><td>The vehicle's text log (<code>STATUSTEXT</code>, <code>MSG</code>, PX4 log messages), filterable by severity</td><td>no</td></tr>
+          <tr><td><code>export_parquet</code></td><td>Writes message types to a .parquet file inside an allowed folder</td><td><strong>yes</strong>, never overwrites unless <code>overwrite</code> is true</td></tr>
         </tbody>
       </table>
-
-      <div style="margin-top: var(--space-6);">
-        <div class="code-block-label">BLOCKED_MODULES (safe_executor.py)</div>
-        <div class="code-block">
-          <div class="code-block-topbar"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-          <pre><code>BLOCKED_MODULES <span class="tok-op">=</span> {
-    <span class="tok-str">"os"</span>, <span class="tok-str">"subprocess"</span>, <span class="tok-str">"sys"</span>, <span class="tok-str">"shutil"</span>,
-    <span class="tok-str">"socket"</span>, <span class="tok-str">"importlib"</span>, <span class="tok-str">"ctypes"</span>, <span class="tok-str">"signal"</span>,
-    <span class="tok-str">"pty"</span>, <span class="tok-str">"tty"</span>, <span class="tok-str">"termios"</span>, <span class="tok-str">"fcntl"</span>,
-    <span class="tok-str">"pwd"</span>, <span class="tok-str">"grp"</span>, <span class="tok-str">"resource"</span>,
-    <span class="tok-str">"multiprocessing"</span>, <span class="tok-str">"threading"</span>, <span class="tok-str">"concurrent"</span>,
-    <span class="tok-str">"asyncio"</span>, <span class="tok-str">"urllib"</span>, <span class="tok-str">"http"</span>, <span class="tok-str">"ftplib"</span>,
-    <span class="tok-str">"smtplib"</span>, <span class="tok-str">"pickle"</span>, <span class="tok-str">"shelve"</span>,
-    <span class="tok-str">"dbm"</span>, <span class="tok-str">"sqlite3"</span>,
-}</code></pre>
-        </div>
-      </div>
-
       <div class="callout callout-info" style="margin-top: var(--space-6);">
-        <span class="callout-icon">💡</span>
-        <p>The import block is enforced via a <code>__import__</code> hook injected as a preamble into every generated script. The hook checks the <em>caller's</em> <code>__file__</code> — so stdlib modules loading their own transitive deps (e.g. <code>json → re → enum → sys</code>) are allowed through; only direct imports from the user script are blocked.</p>
+        <span class="callout-icon">🔒</span>
+        <p>The server reads, and <code>export_parquet</code> writes, only inside the <code>--root</code> folders. Paths that resolve outside them (including via <code>..</code>) and symlinked logs are refused. No tool executes code, and every tool except <code>export_parquet</code> is annotated read-only. Parsed logs are cached (four at a time) and re-read if the file changes.</p>
+      </div>
+    </section>
+    <section class="api-section" id="chat">
+      <h2 class="section-title">
+        Plot assistant — <code>mavpose</code>
+        <a href="#chat" class="section-anchor" aria-label="Link to section">#</a>
+      </h2>
+      <p class="section-desc">Turns a plain-English request into a plot. Needs <code>[chat]</code>.</p>
+
+      <div>
+            <div class="code-block-label">Usage</div>
+<div class="code-block">
+              <div class="code-block-topbar"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre><code>pip install <span class="tok-str">"mavpose[chat] @ git+https://github.com/AyushMaria/MAVPose"</span>
+cp template.env .env    <span class="tok-cmt"># then add OPENROUTER_API_KEY; never commit .env</span>
+mavpose flight.tlog <span class="tok-op">--</span>prompt <span class="tok-str">"Plot altitude and battery voltage"</span>
+<span class="tok-cmt"># interactive mode: ask several questions</span>
+mavpose flight.ulg</code></pre>
+            </div>
+          </div>
+      <div style="margin-top: var(--space-6);"></div>
+      <table class="cli-table">
+        <thead><tr><th>Flag</th><th>Short</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><span class="cli-flag">log_file</span></td><td>—</td><td><code>path</code></td><td><span class="p-required">Required</span></td><td>MAVLink <code>.tlog</code>, ArduPilot <code>.bin</code>/<code>.log</code>, or PX4 <code>.ulg</code>.</td></tr>
+          <tr><td><span class="cli-flag">--prompt</span></td><td><span class="cli-flag">-p</span></td><td><code>str</code></td><td><code>None</code></td><td>Plot request. Omit for interactive mode.</td></tr>
+          <tr><td><span class="cli-flag">--retries</span></td><td><span class="cli-flag">-r</span></td><td><code>int</code></td><td><code>3</code></td><td>Maximum self-healing retries when the generated script fails.</td></tr>
+          <tr><td><span class="cli-flag">--verbose</span></td><td><span class="cli-flag">-v</span></td><td><code>flag</code></td><td><code>False</code></td><td>Enable <code>DEBUG</code> logging.</td></tr>
+        </tbody>
+      </table>
+      <div style="margin-top: var(--space-6);"></div>
+      <table class="cli-table">
+        <thead><tr><th>Variable</th><th>Required</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>OPENROUTER_API_KEY</code></td><td><span class="p-required">Required</span></td><td>—</td><td>Your OpenRouter API key, for the model and embeddings.</td></tr>
+          <tr><td><code>OPENROUTER_MODEL</code></td><td><span class="p-optional">Optional</span></td><td><code>z-ai/glm-5.1</code></td><td>Any OpenRouter model slug.</td></tr>
+        </tbody>
+      </table>
+      <div class="callout callout-info" style="margin-top: var(--space-6);">
+        <span class="callout-icon">📋</span>
+        <p>MAVPose finds the message types relevant to your question, exports them to Parquet and gives the model only the <a href="#fl-summary">summary()</a> schema, never the raw log. The model writes a pandas + matplotlib script; <code>telemetry.parquet</code>, <code>plot.py</code> and <code>plot.png</code> are written next to the log.</p>
+      </div>
+      <div class="callout callout-warn" style="margin-top: var(--space-6);">
+        <span class="callout-icon">🛡️</span>
+        <p>The generated script runs in a separate process with no API keys in its environment, under an audit hook that blocks process spawning, network access and writes outside the output folder, and with CPU, memory and time limits. This is defence in depth, <strong>not a security boundary</strong>: for untrusted logs or prompts, run MAVPose in a container too. <code>mavpose.chat.PlotCreator</code> is the public class behind the command.</p>
+      </div>
+    </section>
+    <section class="api-section" id="stability">
+      <h2 class="section-title">
+        API stability
+        <a href="#stability" class="section-anchor" aria-label="Link to section">#</a>
+      </h2>
+      <p class="section-desc">MAVPose follows Semantic Versioning. These names are covered.</p>
+
+      <table class="cli-table">
+        <thead><tr><th>Name</th><th>What it is</th></tr></thead>
+        <tbody>
+          <tr><td><code>mavpose.load()</code></td><td>Read a log into a FlightLog</td></tr>
+          <tr><td><code>mavpose.FlightLog</code></td><td>All methods and properties documented above</td></tr>
+          <tr><td><code>mavpose.LogExtractor</code></td><td>All methods and properties documented above</td></tr>
+          <tr><td><code>mavpose.validate_mavlink_file()</code>, <code>mavpose.FileValidationError</code></td><td>Input validation</td></tr>
+          <tr><td><code>mavpose.__version__</code></td><td>Installed version</td></tr>
+          <tr><td>The <code>mavpose</code> command</td><td>Plot assistant CLI (needs [chat])</td></tr>
+          <tr><td>The <code>mavpose-mcp</code> command and its tools</td><td>Tool names, arguments and result fields (needs [mcp])</td></tr>
+        </tbody>
+      </table>
+      <div class="callout callout-info" style="margin-top: var(--space-6);">
+        <span class="callout-icon">📐</span>
+        <p>The <strong>data guarantees</strong> are public API too: the shared <code>time_s</code> axis, unit conversion, unknown-marker filtering and message naming. Changing any of them counts as a breaking change.</p>
+      </div>
+      <div class="callout callout-warn" style="margin-top: var(--space-6);">
+        <span class="callout-icon">🧭</span>
+        <p>MAVPose is <strong>pre-1.0</strong>. Minor releases (0.2 → 0.3) may break things and list each change under "Breaking" in the <a href="https://github.com/AyushMaria/MAVPose/blob/master/CHANGELOG.md" target="_blank" rel="noopener noreferrer">changelog</a>; patch releases never do. <strong>Not public:</strong> names starting with <code>_</code>, <code>mavpose.ulog_reader</code>, <code>mavpose.mcp_server</code>, <code>mavpose.chat.*</code> except <code>PlotCreator</code>, and files under <code>mavpose/data/</code>. Full policy: <a href="https://github.com/AyushMaria/MAVPose/blob/master/docs/api-stability.md" target="_blank" rel="noopener noreferrer">docs/api-stability.md</a>.</p>
       </div>
     </section>
 

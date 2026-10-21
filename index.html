@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MAVPose — Natural Language Flight Log Analysis</title>
+  <title>MAVPose — Clean telemetry from drone flight logs</title>
+  <meta name="description" content="MAVPose reads ArduPilot and PX4 flight logs into pandas DataFrames with one time axis, real units and no fake readings, plus an MCP server for AI agents and a plain-English plot assistant." />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -347,6 +348,11 @@
     }
     .output-card__file { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-primary); font-weight: 500; margin-bottom: var(--space-2); }
     .output-card__desc { font-size: var(--text-xs); color: var(--color-text-muted); line-height: 1.5; }
+  
+    /* ── Small screens ───────────────────────────────────────── */
+    @media (max-width: 768px) { .nav__links { display: none; } }
+    @media (max-width: 480px) { .nav__cta .btn--ghost { display: none; } }
+    .terminal-body { overflow-x: auto; text-align: left; }
   </style>
 </head>
 <body>
@@ -369,10 +375,10 @@
       </a>
       <nav class="nav__links" aria-label="Primary navigation">
         <a href="#features" class="nav__link">Features</a>
-        <a href="#architecture" class="nav__link">Architecture</a>
+        <a href="#formats" class="nav__link">Formats</a>
+        <a href="#architecture" class="nav__link">Add-ons</a>
         <a href="#install" class="nav__link">Install</a>
-        <a href="#models" class="nav__link">Models</a>
-	      <a href="./api-reference.html">API</a>
+        <a href="./api-reference.html" class="nav__link">API</a>
       </nav>
       <div class="nav__cta">
         <a href="https://pypi.org/project/mavpose/" target="_blank" rel="noopener noreferrer" class="btn btn--ghost">PyPI</a>
@@ -391,17 +397,18 @@
     <div class="hero__inner">
       <div class="hero__badge">
         <span class="hero__badge-dot"></span>
-        Now on PyPI — <code style="font-family:var(--font-mono);font-size:inherit">pip install mavpose</code>
+        v0.2 — PX4 logs and an MCP server for AI agents
       </div>
 
       <h1 class="hero__title">
-        Ask your flight log<br>
-        <span class="hero__title-gradient">anything, in plain English.</span>
+        Flight logs you can trust,<br>
+        <span class="hero__title-gradient">in one line of Python.</span>
       </h1>
 
       <p class="hero__sub">
-        MAVPose turns a natural language prompt into a matplotlib plot of your MAVLink telemetry.
-        No pymavlink knowledge required. Like the Log Pose — it locks onto your data and charts the course.
+        MAVPose reads ArduPilot and PX4 logs into pandas DataFrames: every message type on one time axis,
+        values in real units, and "value not provided" markers removed. Optional add-ons let AI agents read your logs
+        and turn plain-English questions into plots. Like the Log Pose — it locks onto your data and charts the course.
       </p>
 
       <div class="hero__actions">
@@ -409,10 +416,7 @@
           Get Started
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
         </a>
-        <a href="https://github.com/AyushMaria/MAVPose" target="_blank" rel="noopener noreferrer" class="btn btn--ghost btn--hero">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12Z"/></svg>
-          View on GitHub
-        </a>
+        <a href="./api-reference.html" class="btn btn--ghost btn--hero">API reference</a>
       </div>
 
       <div class="hero__badges">
@@ -430,122 +434,145 @@
             <div class="terminal-dot terminal-dot--yellow"></div>
             <div class="terminal-dot terminal-dot--green"></div>
           </div>
-          <span class="terminal-title">mavpose — flight.tlog</span>
+          <span class="terminal-title">python — a real 40-minute ArduPilot flight</span>
         </div>
-        <div class="terminal-body" aria-label="Terminal demo output">
-<span class="code-line"><span class="t-cmd">$</span> <span class="t-arg">mavpose flight.tlog --prompt "Plot altitude over time"</span></span>
+        <div class="terminal-body" aria-label="Python session showing MAVPose output">
+<span class="code-line"><span class="t-cmd">&gt;&gt;&gt;</span> <span class="t-arg">import mavpose</span></span>
+<span class="code-line"><span class="t-cmd">&gt;&gt;&gt;</span> <span class="t-arg">log = mavpose.load("flight.tlog")</span></span>
+<span class="code-line"><span class="t-cmd">&gt;&gt;&gt;</span> <span class="t-arg">log</span></span>
+<span class="code-line"><span class="t-ok">&lt;FlightLog 'flight.tlog': mavlink, 38 message types, 2443.8 s&gt;</span></span>
 <span class="code-line"> </span>
-<span class="code-line"><span class="t-dim">📂 Parsing log schema: flight.tlog</span></span>
-<span class="code-line"><span class="t-ok">✅ Schema indexed.</span></span>
+<span class="code-line"><span class="t-cmd">&gt;&gt;&gt;</span> <span class="t-arg">alt = log.series("GLOBAL_POSITION_INT", "relative_alt")</span></span>
+<span class="code-line"><span class="t-cmd">&gt;&gt;&gt;</span> <span class="t-arg">alt.attrs</span></span>
+<span class="code-line"><span class="t-info">{'unit': 'm', 'msg_type': 'GLOBAL_POSITION_INT'}</span>      <span class="t-dim"># converted from mm</span></span>
+<span class="code-line"><span class="t-cmd">&gt;&gt;&gt;</span> <span class="t-arg">alt.head(3)</span></span>
+<span class="code-line"><span class="t-dim">time_s</span></span>
+<span class="code-line"><span class="t-dim">8.345965    1.93</span></span>
+<span class="code-line"><span class="t-dim">8.593081    1.92</span></span>
+<span class="code-line"><span class="t-dim">8.999325    1.91</span></span>
 <span class="code-line"> </span>
-<span class="code-line"><span class="t-info">🔍 Finding relevant message types for: 'Plot altitude over time'</span></span>
-<span class="code-line">   <span class="t-dim">→ ['GLOBAL_POSITION_INT', 'VFR_HUD']</span></span>
-<span class="code-line"> </span>
-<span class="code-line"><span class="t-info">🗃️  Extracting telemetry to Parquet...</span></span>
-<span class="code-line"><span class="t-box">┌──────────────────────────────────────────────────────────┐</span></span>
-<span class="code-line"><span class="t-box">│</span>  <span class="t-head">🗃️  Extracted Parquet schema</span>                              <span class="t-box">│</span></span>
-<span class="code-line"><span class="t-box">├──────────────────────────────────────────────────────────┤</span></span>
-<span class="code-line"><span class="t-box">│</span>  <span class="t-info">[GLOBAL_POSITION_INT]</span>  <span class="t-dim">1842 rows</span>                        <span class="t-box">│</span></span>
-<span class="code-line"><span class="t-box">│</span>      <span class="t-dim">time_s: float64  [0.0 … 312.4]</span>                       <span class="t-box">│</span></span>
-<span class="code-line"><span class="t-box">│</span>      <span class="t-dim">alt:    float64  [487320 … 512100]</span>                    <span class="t-box">│</span></span>
-<span class="code-line"><span class="t-box">│</span>  <span class="t-info">[VFR_HUD]</span>  <span class="t-dim">1842 rows</span>                                    <span class="t-box">│</span></span>
-<span class="code-line"><span class="t-box">│</span>      <span class="t-dim">time_s: float64  [0.0 … 312.4]</span>                       <span class="t-box">│</span></span>
-<span class="code-line"><span class="t-box">│</span>      <span class="t-dim">alt:    float64  [476.1 … 501.3]</span>                      <span class="t-box">│</span></span>
-<span class="code-line"><span class="t-box">└──────────────────────────────────────────────────────────┘</span></span>
-<span class="code-line"> </span>
-<span class="code-line"><span class="t-dim">✍️  Generating plot script with z-ai/glm-5.1...</span></span>
-<span class="code-line"><span class="t-dim">⚙️  Running script...</span></span>
-<span class="code-line"><span class="t-ok">✅ Plot saved to: ./target/plot.png</span></span>
+<span class="code-line"><span class="t-cmd">&gt;&gt;&gt;</span> <span class="t-arg">log.unknown_counts</span></span>
+<span class="code-line"><span class="t-info">{'GPS_RAW_INT': {'epv': 6338}}</span>       <span class="t-dim"># sentinels → NaN, not fake spikes</span></span>
+<span class="code-line"><span class="t-cmd">&gt;&gt;&gt;</span> <span class="t-arg">log.stats</span></span>
+<span class="code-line"><span class="t-info">{'messages': 163851, 'bad_data': 0, 'errors': 0, 'unknown_values': 6338}</span></span>
+<span class="code-line"><span class="t-cmd">&gt;&gt;&gt;</span> <span class="t-arg">log.to_parquet("telemetry.parquet")</span>   <span class="t-dim"># one tidy file for other tools</span></span>
         </div>
       </div>
     </div>
   </div>
 </header>
 
-<!-- ARCHITECTURE -->
-<section class="section arch" id="architecture">
-  <div class="container">
-    <p class="section__label">How it works</p>
-    <h2 class="section__title">Two-phase pipeline</h2>
-    <p class="section__sub">The LLM never sees raw binary data. Phase 1 extracts clean, typed Parquet with exact column names and value ranges. Phase 2 hands that schema to the LLM — writing <code style="font-family:var(--font-mono);font-size:0.9em;color:var(--color-primary)">pd.read_parquet()</code> against a known schema is trivially reliable.</p>
-
-    <div class="arch__grid" style="margin-top:var(--space-10)">
-      <div class="arch__phase arch__phase--1">
-        <p class="arch__phase-label">Phase 1 — Extraction (no LLM)</p>
-        <h3 class="arch__phase-title">Parent Process</h3>
-        <div class="arch__steps">
-          <div class="arch__step"><span class="arch__step-icon">🔍</span><div><strong>schema_only()</strong>pymavlink fast scan → field map, message counts</div></div>
-          <div class="arch__step"><span class="arch__step-icon">🧠</span><div><strong>ChromaDB embeddings</strong>Semantic search — no full extraction yet</div></div>
-          <div class="arch__step"><span class="arch__step-icon">🗃️</span><div><strong>extract_all()</strong>Per-msg-type DataFrames, <code style="font-family:var(--font-mono);font-size:0.85em">time_s</code> column, cast numerics</div></div>
-          <div class="arch__step"><span class="arch__step-icon">📦</span><div><strong>export_parquet()</strong>Clean Parquet + dtype + min/max range metadata</div></div>
-        </div>
-      </div>
-
-      <div class="arch__phase arch__phase--2">
-        <p class="arch__phase-label">Phase 2 — LLM Plot Generation</p>
-        <h3 class="arch__phase-title">LLM Subprocess</h3>
-        <div class="arch__steps">
-          <div class="arch__step"><span class="arch__step-icon">📋</span><div><strong>LLM receives schema</strong>Parquet path, column names, dtypes, min/max ranges</div></div>
-          <div class="arch__step"><span class="arch__step-icon">✍️</span><div><strong>Writes pandas + matplotlib</strong><code style="font-family:var(--font-mono);font-size:0.85em">pd.read_parquet()</code> against a known schema</div></div>
-          <div class="arch__step"><span class="arch__step-icon">🛡️</span><div><strong>Sandboxed execution</strong>Subprocess with import denylist + 30s timeout</div></div>
-          <div class="arch__step"><span class="arch__step-icon">🔄</span><div><strong>Self-healing</strong>On failure: rewrites with full traceback up to N times</div></div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
 <!-- FEATURES -->
 <section class="section" id="features">
   <div class="container">
-    <p class="section__label">Capabilities</p>
-    <h2 class="section__title">Everything MAVPose handles for you</h2>
-    <p class="section__sub">From semantic field search to sandboxed execution — focus on the question, not the telemetry plumbing.</p>
+    <p class="section__label">Guarantees</p>
+    <h2 class="section__title">What MAVPose does for you</h2>
+    <p class="section__sub">Raw flight logs mix clocks, store scaled integers and hide "no reading" sentinels among real values. MAVPose fixes all of that, the same way for every format.</p>
     <div class="features__grid">
       <div class="feature-card">
-        <div class="feature-card__icon">🗣️</div>
-        <h3 class="feature-card__title">Plain-English Queries</h3>
-        <p class="feature-card__desc">Describe any flight event. MAVPose resolves the right MAVLink message types automatically via ChromaDB vector embeddings.</p>
+        <div class="feature-card__icon">⏱️</div>
+        <h3 class="feature-card__title">One clock</h3>
+        <p class="feature-card__desc">Receive time, <code style="font-family:var(--font-mono);font-size:0.85em;color:var(--color-primary)">TimeUS</code> since boot, epoch microseconds, ULog timestamps: every message type lands on one shared <code style="font-family:var(--font-mono);font-size:0.85em;color:var(--color-primary)">time_s</code> axis, so series from different messages line up.</p>
       </div>
       <div class="feature-card">
-        <div class="feature-card__icon">📦</div>
-        <h3 class="feature-card__title">Clean Parquet Handoff</h3>
-        <p class="feature-card__desc">The LLM receives a typed, time-aligned Parquet with exact column names, dtypes, and value ranges. No binary guesswork.</p>
+        <div class="feature-card__icon">📏</div>
+        <h3 class="feature-card__title">Real units</h3>
+        <p class="feature-card__desc">Millimetres, degE7 and millivolts become metres, degrees and volts, using the autopilot's own unit definitions. Every column reports its unit.</p>
       </div>
       <div class="feature-card">
-        <div class="feature-card__icon">🧠</div>
-        <h3 class="feature-card__title">Semantic Field Search</h3>
-        <p class="feature-card__desc">ChromaDB vector store persists to disk. Re-running on the same log skips re-embedding completely.</p>
+        <div class="feature-card__icon">🚫</div>
+        <h3 class="feature-card__title">No fake readings</h3>
+        <p class="feature-card__desc">Sentinels such as <code style="font-family:var(--font-mono);font-size:0.85em;color:var(--color-primary)">current_battery = -1</code> or <code style="font-family:var(--font-mono);font-size:0.85em;color:var(--color-primary)">eph = 65535</code> become NaN. The markers come from the official MAVLink (441 fields) and PX4 (31 fields) definitions, not guesses.</p>
       </div>
       <div class="feature-card">
-        <div class="feature-card__icon">🔄</div>
-        <h3 class="feature-card__title">Self-Healing Scripts</h3>
-        <p class="feature-card__desc">LLM debugs and rewrites failing scripts up to N times. The fix prompt includes the full schema and traceback.</p>
+        <div class="feature-card__icon">🩹</div>
+        <h3 class="feature-card__title">Damaged logs still load</h3>
+        <p class="feature-card__desc">Power loss and bad transfers happen. Corrupt packets are skipped and counted in <code style="font-family:var(--font-mono);font-size:0.85em;color:var(--color-primary)">log.stats</code> instead of ending the parse.</p>
       </div>
       <div class="feature-card">
-        <div class="feature-card__icon">🛡️</div>
-        <h3 class="feature-card__title">Sandboxed Execution</h3>
-        <p class="feature-card__desc">Generated code runs in an isolated subprocess with a blocked-import denylist and a 30-second timeout.</p>
+        <div class="feature-card__icon">🪶</div>
+        <h3 class="feature-card__title">A light core</h3>
+        <p class="feature-card__desc"><code style="font-family:var(--font-mono);font-size:0.85em;color:var(--color-primary)">pip install mavpose</code> pulls in 10 packages and no AI libraries. The assistant and the MCP server are opt-in extras.</p>
       </div>
-      <div class="feature-card feature-card--wide">
-        <div class="feature-card__icon">🔁</div>
-        <h3 class="feature-card__title">Interactive REPL Mode</h3>
-        <p class="feature-card__desc">Omit <code style="font-family:var(--font-mono);font-size:0.85em;color:var(--color-primary)">--prompt</code> to enter a live loop. Query the same log repeatedly without re-parsing. Swap the LLM with a single <code style="font-family:var(--font-mono);font-size:0.85em;color:var(--color-primary)">.env</code> change via OpenRouter.</p>
+      <div class="feature-card">
+        <div class="feature-card__icon">📜</div>
+        <h3 class="feature-card__title">A stable API</h3>
+        <p class="feature-card__desc">A small, documented public API with a written <a href="./api-reference.html#stability" style="color:var(--color-primary)">stability policy</a>, so other tools can build on it.</p>
       </div>
     </div>
   </div>
 </section>
 
-<!-- OUTPUT FILES -->
+<!-- FORMATS -->
+<section class="section stack" id="formats">
+  <div class="container">
+    <div class="stack__inner">
+      <div>
+        <p class="section__label">Log formats</p>
+        <h2 class="section__title">ArduPilot and PX4, one API</h2>
+        <p class="section__sub" style="margin-top:var(--space-4)"><code style="font-family:var(--font-mono);font-size:0.9em;color:var(--color-primary)">mavpose.load()</code> detects the format. The same methods, units and guarantees apply to each.</p>
+      </div>
+      <table class="stack__table" aria-label="Supported log formats">
+        <thead>
+          <tr><th>Format</th><th>Extension</th><th>Autopilot</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>MAVLink telemetry log</td><td><code style="font-family:var(--font-mono)">.tlog</code></td><td>ArduPilot, PX4, any MAVLink vehicle</td></tr>
+          <tr><td>DataFlash binary / text log</td><td><code style="font-family:var(--font-mono)">.bin</code>, <code style="font-family:var(--font-mono)">.log</code></td><td>ArduPilot</td></tr>
+          <tr><td>ULog</td><td><code style="font-family:var(--font-mono)">.ulg</code></td><td>PX4</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ADD-ONS -->
+<section class="section arch" id="architecture">
+  <div class="container">
+    <p class="section__label">Optional add-ons</p>
+    <h2 class="section__title">For AI agents and plain-English plots</h2>
+    <p class="section__sub">Both add-ons sit on top of the same data layer, so they inherit its guarantees. Neither ever sends a raw log to a model.</p>
+
+    <div class="arch__grid" style="margin-top:var(--space-10)">
+      <div class="arch__phase arch__phase--1" id="mcp">
+        <p class="arch__phase-label">mavpose[mcp] — <code style="font-family:var(--font-mono)">mavpose-mcp</code></p>
+        <h3 class="arch__phase-title">MCP server for AI agents</h3>
+        <div class="arch__steps">
+          <div class="arch__step"><span class="arch__step-icon">🔌</span><div><strong>Works with any MCP client</strong>Assistants and agent frameworks that speak the Model Context Protocol launch it over stdio.</div></div>
+          <div class="arch__step"><span class="arch__step-icon">📁</span><div><strong>Folder allowlist</strong>Reads and writes only inside the <code style="font-family:var(--font-mono);font-size:0.85em">--root</code> folders. Symlinked logs and <code style="font-family:var(--font-mono);font-size:0.85em">..</code> escapes are refused.</div></div>
+          <div class="arch__step"><span class="arch__step-icon">🧮</span><div><strong>Built for a context window</strong>Series are downsampled to at most 5,000 points, but min, max and mean cover every sample, so a brief spike is never missed.</div></div>
+          <div class="arch__step"><span class="arch__step-icon">🔒</span><div><strong>No code execution</strong>Every tool calls the library directly. Six of the seven tools are marked read-only.</div></div>
+        </div>
+      </div>
+
+      <div class="arch__phase arch__phase--2" id="chat">
+        <p class="arch__phase-label">mavpose[chat] — <code style="font-family:var(--font-mono)">mavpose</code></p>
+        <h3 class="arch__phase-title">Plain-English plot assistant</h3>
+        <div class="arch__steps">
+          <div class="arch__step"><span class="arch__step-icon">🔍</span><div><strong>Finds the right messages</strong>Semantic search over the log's schema picks the relevant message types.</div></div>
+          <div class="arch__step"><span class="arch__step-icon">📋</span><div><strong>Model sees a schema, not the log</strong>Columns, units, ranges and unknown counts from a clean Parquet export.</div></div>
+          <div class="arch__step"><span class="arch__step-icon">🔄</span><div><strong>Self-healing scripts</strong>The model writes pandas + matplotlib and fixes failures from the traceback, up to <code style="font-family:var(--font-mono);font-size:0.85em">--retries</code> times.</div></div>
+          <div class="arch__step"><span class="arch__step-icon">🛡️</span><div><strong>Restricted runner</strong>No API keys in the environment, an audit hook blocking processes, network and stray writes, plus CPU, memory and time limits. Defence in depth, not a security boundary.</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MCP TOOLS -->
 <section class="section" style="padding-top:0">
   <div class="container">
-    <p class="section__label">Output files</p>
-    <h2 class="section__title">What gets generated</h2>
+    <p class="section__label">MCP tools</p>
+    <h2 class="section__title">What an agent can ask for</h2>
     <div class="outputs__grid">
-      <div class="output-card"><div class="output-card__file">telemetry.parquet</div><div class="output-card__desc">Extracted, time-aligned telemetry for the relevant message types</div></div>
-      <div class="output-card"><div class="output-card__file">plot.py</div><div class="output-card__desc">The LLM-generated pandas + matplotlib script</div></div>
-      <div class="output-card"><div class="output-card__file">plot.png</div><div class="output-card__desc">The final rendered plot at 400 dpi</div></div>
-      <div class="output-card"><div class="output-card__file">chroma_db/</div><div class="output-card__desc">Persisted ChromaDB vector store (git-ignored, skips re-embedding)</div></div>
+      <div class="output-card"><div class="output-card__file">list_logs</div><div class="output-card__desc">Log files in the allowed folders, with format and size</div></div>
+      <div class="output-card"><div class="output-card__file">summarize_flight</div><div class="output-card__desc">Duration; altitude, speed, battery and GPS ranges with source field and unit; parse stats; warnings</div></div>
+      <div class="output-card"><div class="output-card__file">list_messages</div><div class="output-card__desc">Message types with row counts, field counts and time range</div></div>
+      <div class="output-card"><div class="output-card__file">describe_message</div><div class="output-card__desc">One message type's fields: dtype, unit, min, max, unknown count</div></div>
+      <div class="output-card"><div class="output-card__file">get_series</div><div class="output-card__desc">Fields over a time window on the shared <code style="font-family:var(--font-mono)">time_s</code> axis, with units</div></div>
+      <div class="output-card"><div class="output-card__file">get_log_messages</div><div class="output-card__desc">The vehicle's text log (STATUSTEXT, MSG, PX4 log messages), filterable by severity</div></div>
+      <div class="output-card"><div class="output-card__file">export_parquet</div><div class="output-card__desc">Writes message types to a .parquet file in an allowed folder; never overwrites unless asked</div></div>
+      <div class="output-card"><div class="output-card__file">helpful errors</div><div class="output-card__desc">"No message type 'GLOBAL_POS'. Did you mean: GLOBAL_POSITION_INT, …?"</div></div>
     </div>
   </div>
 </section>
@@ -557,22 +584,21 @@
       <div>
         <p class="section__label">Tech stack</p>
         <h2 class="section__title">Built on proven tools</h2>
-        <p class="section__sub" style="margin-top:var(--space-4)">Every layer is chosen to minimise hallucinations and maximise reliable code generation.</p>
+        <p class="section__sub" style="margin-top:var(--space-4)">The core depends only on the standard log readers and pandas. Everything AI-related lives in extras.</p>
       </div>
       <table class="stack__table" aria-label="Technology stack">
         <thead>
           <tr><th>Layer</th><th>Library / Service</th></tr>
         </thead>
         <tbody>
-          <tr><td>LLM</td><td>OpenRouter → z-ai/glm-5.1</td></tr>
-          <tr><td>Embeddings</td><td>openai/text-embedding-3-small</td></tr>
-          <tr><td>LLM framework</td><td>LangChain LCEL</td></tr>
-          <tr><td>Vector store</td><td>ChromaDB ≥ 0.5 (persisted)</td></tr>
-          <tr><td>Extraction</td><td>pandas ≥ 2.0 + pyarrow ≥ 14.0</td></tr>
-          <tr><td>Drone logs</td><td>pymavlink 2.4.37</td></tr>
-          <tr><td>Plotting</td><td>matplotlib 3.7.1</td></tr>
-          <tr><td>Sandbox</td><td>subprocess + import denylist</td></tr>
-          <tr><td>Lint / CI</td><td>ruff + pytest + GitHub Actions</td></tr>
+          <tr><td>Log readers</td><td>pymavlink ≥ 2.4.37 · pyulog ≥ 1.1</td></tr>
+          <tr><td>Data</td><td>pandas ≥ 2.0 + pyarrow ≥ 14.0</td></tr>
+          <tr><td>Units &amp; markers</td><td>Generated from MAVLink XML and PX4 msg definitions</td></tr>
+          <tr><td>MCP server</td><td>mcp ≥ 2.3 (stdio)</td></tr>
+          <tr><td>Plot assistant</td><td>LangChain + ChromaDB via OpenRouter</td></tr>
+          <tr><td>Plotting</td><td>matplotlib ≥ 3.8</td></tr>
+          <tr><td>Script runner</td><td>Audit hook + resource limits</td></tr>
+          <tr><td>Lint / CI</td><td>ruff + pytest, Python 3.10–3.13</td></tr>
         </tbody>
       </table>
     </div>
@@ -584,27 +610,26 @@
   <div class="container">
     <p class="section__label">Installation</p>
     <h2 class="section__title">Up and running in minutes</h2>
-    <p class="section__sub">Python 3.10+ and an <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" style="color:var(--color-primary)">OpenRouter API key</a> are all you need.</p>
+    <p class="section__sub">Python 3.10 or newer. Pick only the parts you need.</p>
 
-    <div style="margin-top:var(--space-8); max-width: 640px;">
+    <div style="margin-top:var(--space-8); max-width: 680px;">
       <div class="install__tabs" role="tablist">
-        <button class="install__tab install__tab--active" role="tab" aria-selected="true" onclick="switchTab('pip')">pip (library)</button>
-        <button class="install__tab" role="tab" aria-selected="false" onclick="switchTab('git')">Clone from GitHub</button>
+        <button class="install__tab install__tab--active" role="tab" aria-selected="true" onclick="switchTab('pip')">pip</button>
+        <button class="install__tab" role="tab" aria-selected="false" onclick="switchTab('git')">Clone for development</button>
       </div>
 
       <div class="install__panels">
         <div id="panel-pip" class="active">
           <div class="code-block">
             <button class="code-block__copy" onclick="copyCode('pip-code')">Copy</button>
-            <pre id="pip-code" style="margin:0;white-space:pre-wrap"><span class="code-comment"># Install the package</span>
-<span class="code-cmd">pip install mavpose</span>
+            <pre id="pip-code" style="margin:0;white-space:pre-wrap"><span class="code-comment"># Data layer only: 10 packages, no AI dependencies</span>
+<span class="code-cmd">pip install "mavpose @ git+https://github.com/AyushMaria/MAVPose"</span>
 
-<span class="code-comment"># Set your API key</span>
-<span class="code-cmd">set OPENROUTER_API_KEY=your-key-here</span>  <span class="code-comment"># Windows</span>
-<span class="code-cmd">export OPENROUTER_API_KEY=your-key-here</span>  <span class="code-comment"># macOS / Linux</span>
+<span class="code-comment"># Add the MCP server for AI agents</span>
+<span class="code-cmd">pip install "mavpose[mcp] @ git+https://github.com/AyushMaria/MAVPose"</span>
 
-<span class="code-comment"># Run it</span>
-<span class="code-cmd">mavpose flight.tlog --prompt "Plot altitude over time"</span></pre>
+<span class="code-comment"># Add the plain-English plot assistant</span>
+<span class="code-cmd">pip install "mavpose[chat] @ git+https://github.com/AyushMaria/MAVPose"</span></pre>
           </div>
         </div>
         <div id="panel-git" style="display:none">
@@ -614,35 +639,47 @@
 <span class="code-cmd">git clone https://github.com/AyushMaria/MAVPose.git && cd MAVPose</span>
 
 <span class="code-comment"># 2. Virtual environment</span>
-<span class="code-cmd">python -m venv venv && venv\Scripts ctivate</span>
+<span class="code-cmd">python -m venv .venv && source .venv/bin/activate</span>  <span class="code-comment"># Windows: .venv\Scripts\activate</span>
 
-<span class="code-comment"># 3. Install dependencies</span>
-<span class="code-cmd">pip install -r requirements.txt</span>
+<span class="code-comment"># 3. Install with every extra plus test tools</span>
+<span class="code-cmd">pip install -e ".[dev]"</span>
 
-<span class="code-comment"># 4. Configure</span>
-<span class="code-cmd">cp template.env .env</span>
-<span class="code-comment"># Edit .env — add OPENROUTER_API_KEY=your-key-here</span>
-
-<span class="code-comment"># 5. Run</span>
-<span class="code-cmd">python cli.py flight.tlog --prompt "Plot altitude over time"</span></pre>
+<span class="code-comment"># 4. Run the tests</span>
+<span class="code-cmd">pytest</span></pre>
           </div>
         </div>
       </div>
 
       <div style="margin-top:var(--space-6);padding:var(--space-4);background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg)">
-        <p style="font-size:var(--text-sm);color:var(--color-text-muted)"><strong style="color:var(--color-warning)">⚠️ Note:</strong> Never commit <code style="font-family:var(--font-mono);font-size:0.9em">.env</code> — it is already in <code style="font-family:var(--font-mono);font-size:0.9em">.gitignore</code>. Need a sample log?
+        <p style="font-size:var(--text-sm);color:var(--color-text-muted)"><strong style="color:var(--color-warning)">⚠️ Note:</strong> PyPI still has 0.1.0, the earlier plot-only release, so <code style="font-family:var(--font-mono);font-size:0.9em">pip install mavpose</code> doesn't include the features on this page yet. Install from GitHub as shown until 0.2.0 is published. Need a sample log?
         <a href="https://drive.google.com/file/d/1BKv-NbSvYQz9XqqmyOyOhe3o4PAFDyZa/view?usp=sharing" target="_blank" rel="noopener noreferrer" style="color:var(--color-primary)">Download here →</a></p>
       </div>
 
       <div style="margin-top:var(--space-6)">
-        <p style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-3)"><strong style="color:var(--color-text)">CLI flags</strong></p>
+        <p style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-3)"><strong style="color:var(--color-text)">Connect an MCP client</strong> — most use an entry like this; file and key names vary by client</p>
+        <div class="code-block" style="font-size:var(--text-xs)">
+          <pre style="margin:0;white-space:pre-wrap">{
+  <span class="t-arg">"mcpServers"</span>: {
+    <span class="t-arg">"mavpose"</span>: {
+      <span class="t-arg">"command"</span>: <span class="code-cmd">"mavpose-mcp"</span>,
+      <span class="t-arg">"args"</span>: [<span class="code-cmd">"--root"</span>, <span class="code-cmd">"/home/you/flight-logs"</span>]
+    }
+  }
+}</pre>
+        </div>
+      </div>
+
+      <div style="margin-top:var(--space-6)">
+        <p style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-3)"><strong style="color:var(--color-text)">Plot assistant CLI</strong> — needs <code style="font-family:var(--font-mono);font-size:0.9em">[chat]</code> and an <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" style="color:var(--color-primary)">OpenRouter API key</a> in <code style="font-family:var(--font-mono);font-size:0.9em">.env</code> (never commit it)</p>
         <div class="code-block" style="font-size:var(--text-xs)">
           <pre style="margin:0;white-space:pre-wrap"><span class="code-cmd">mavpose</span> <span class="t-arg">log_file</span> [options]
 
-  <span class="t-arg">log_file</span>            Path to .tlog / .bin / .log
-  <span class="t-dim">-p, --prompt TEXT</span>   Plot request (omit for interactive REPL)
+  <span class="t-arg">log_file</span>            MAVLink .tlog, ArduPilot .bin/.log, or PX4 .ulg
+  <span class="t-dim">-p, --prompt TEXT</span>   Plot request (omit for interactive mode)
   <span class="t-dim">-r, --retries N</span>     Max self-healing retries (default: 3)
-  <span class="t-dim">-v, --verbose</span>       Enable debug logging</pre>
+  <span class="t-dim">-v, --verbose</span>       Enable debug logging
+
+<span class="code-comment"># Writes telemetry.parquet, plot.py and plot.png next to the log</span></pre>
         </div>
       </div>
     </div>
@@ -652,9 +689,9 @@
 <!-- MODELS -->
 <section class="section" id="models" style="padding-top:0">
   <div class="container">
-    <p class="section__label">Model support</p>
+    <p class="section__label">Plot assistant models</p>
     <h2 class="section__title">Swap models with one line</h2>
-    <p class="section__sub">MAVPose routes through <a href="https://openrouter.ai" target="_blank" rel="noopener noreferrer" style="color:var(--color-primary)">OpenRouter</a> — any model on the platform works. Set <code style="font-family:var(--font-mono);font-size:0.9em;color:var(--color-primary)">OPENROUTER_MODEL</code> in your <code style="font-family:var(--font-mono);font-size:0.9em">.env</code>.</p>
+    <p class="section__sub">The assistant routes through <a href="https://openrouter.ai" target="_blank" rel="noopener noreferrer" style="color:var(--color-primary)">OpenRouter</a>, so any model on the platform works. Set <code style="font-family:var(--font-mono);font-size:0.9em;color:var(--color-primary)">OPENROUTER_MODEL</code> in your <code style="font-family:var(--font-mono);font-size:0.9em">.env</code>.</p>
     <div class="models__grid">
       <div class="model-card model-card--default">
         <span class="model-card__tag">Default</span>
@@ -684,10 +721,10 @@
 <section class="cta">
   <div class="container">
     <h2 class="cta__title">Start analysing your flight data today</h2>
-    <p class="cta__sub">One command. Natural language. A plot in seconds.</p>
+    <p class="cta__sub">One line to load a log. Real units, one clock, no fake readings.</p>
     <div class="cta__actions">
-      <a href="https://pypi.org/project/mavpose/" target="_blank" rel="noopener noreferrer" class="btn btn--primary btn--hero">
-        pip install mavpose
+      <a href="#install" class="btn btn--primary btn--hero">
+        Install MAVPose
       </a>
       <a href="https://github.com/AyushMaria/MAVPose" target="_blank" rel="noopener noreferrer" class="btn btn--ghost btn--hero">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12Z"/></svg>
@@ -701,10 +738,11 @@
 <footer>
   <div class="container">
     <div class="footer">
-      <p class="footer__left">© 2025 MAVPose · MIT License · Inspired by the Log Pose from One Piece</p>
+      <p class="footer__left">© 2026 MAVPose · MIT License · Inspired by the Log Pose from One Piece</p>
       <nav class="footer__links" aria-label="Footer navigation">
         <a href="https://github.com/AyushMaria/MAVPose" target="_blank" rel="noopener noreferrer" class="footer__link">GitHub</a>
-        <a href="https://pypi.org/project/mavpose/" target="_blank" rel="noopener noreferrer" class="footer__link">PyPI</a>
+        <a href="./api-reference.html" class="footer__link">API</a>
+        <a href="https://github.com/AyushMaria/MAVPose/blob/master/CHANGELOG.md" target="_blank" rel="noopener noreferrer" class="footer__link">Changelog</a>
         <a href="https://github.com/AyushMaria/MAVPose/blob/master/LICENSE" target="_blank" rel="noopener noreferrer" class="footer__link">License</a>
         <a href="https://drive.google.com/file/d/1BKv-NbSvYQz9XqqmyOyOhe3o4PAFDyZa/view?usp=sharing" target="_blank" rel="noopener noreferrer" class="footer__link">Sample Log</a>
       </nav>
@@ -723,7 +761,7 @@
   }
   function copyCode(id) {
     const el = document.getElementById(id);
-    const text = el.innerText.replace(/^[#$]\s*/gm, '').trim();
+    const text = el.innerText.split('\n').filter(l => !l.trim().startsWith('#')).map(l => l.replace(/\s+#.*$/, '')).join('\n').replace(/\n{2,}/g, '\n').trim();
     navigator.clipboard.writeText(text).then(() => {
       const btn = el.closest('.code-block').querySelector('.code-block__copy');
       btn.textContent = 'Copied!';
