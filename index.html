@@ -591,7 +591,7 @@
           <tr><th>Layer</th><th>Library / Service</th></tr>
         </thead>
         <tbody>
-          <tr><td>Log readers</td><td>pymavlink ≥ 2.4.37 · pyulog ≥ 1.1</td></tr>
+          <tr><td>Log readers</td><td>pymavlink ≥ 2.4.48 · pyulog ≥ 1.1</td></tr>
           <tr><td>Data</td><td>pandas ≥ 2.0 + pyarrow ≥ 14.0</td></tr>
           <tr><td>Units &amp; markers</td><td>Generated from MAVLink XML and PX4 msg definitions</td></tr>
           <tr><td>MCP server</td><td>mcp ≥ 2.3 (stdio)</td></tr>
@@ -623,13 +623,13 @@
           <div class="code-block">
             <button class="code-block__copy" onclick="copyCode('pip-code')">Copy</button>
             <pre id="pip-code" style="margin:0;white-space:pre-wrap"><span class="code-comment"># Data layer only: 10 packages, no AI dependencies</span>
-<span class="code-cmd">pip install "mavpose @ git+https://github.com/AyushMaria/MAVPose"</span>
+<span class="code-cmd">pip install mavpose</span>
 
 <span class="code-comment"># Add the MCP server for AI agents</span>
-<span class="code-cmd">pip install "mavpose[mcp] @ git+https://github.com/AyushMaria/MAVPose"</span>
+<span class="code-cmd">pip install "mavpose[mcp]"</span>
 
 <span class="code-comment"># Add the plain-English plot assistant</span>
-<span class="code-cmd">pip install "mavpose[chat] @ git+https://github.com/AyushMaria/MAVPose"</span></pre>
+<span class="code-cmd">pip install "mavpose[chat]"</span></pre>
           </div>
         </div>
         <div id="panel-git" style="display:none">
@@ -651,7 +651,7 @@
       </div>
 
       <div style="margin-top:var(--space-6);padding:var(--space-4);background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg)">
-        <p style="font-size:var(--text-sm);color:var(--color-text-muted)"><strong style="color:var(--color-warning)">⚠️ Note:</strong> PyPI still has 0.1.0, the earlier plot-only release, so <code style="font-family:var(--font-mono);font-size:0.9em">pip install mavpose</code> doesn't include the features on this page yet. Install from GitHub as shown until 0.2.0 is published. Need a sample log?
+        <p style="font-size:var(--text-sm);color:var(--color-text-muted)"><strong style="color:var(--color-text)">Need a sample log?</strong>
         <a href="https://drive.google.com/file/d/1BKv-NbSvYQz9XqqmyOyOhe3o4PAFDyZa/view?usp=sharing" target="_blank" rel="noopener noreferrer" style="color:var(--color-primary)">Download here →</a></p>
       </div>
 

@@ -1050,19 +1050,15 @@ log.<span class="tok-fn">to_parquet</span>(<span class="tok-str">"telemetry.parq
 <div class="code-block">
               <div class="code-block-topbar"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
               <pre><code><span class="tok-cmt"># Data layer only: 10 packages, no AI dependencies</span>
-pip install <span class="tok-str">"mavpose @ git+https://github.com/AyushMaria/MAVPose"</span>
+pip install <span class="tok-str">mavpose</span>
 
 <span class="tok-cmt"># Optional extras</span>
 <span class="tok-cmt"># MCP server for AI agents</span>
-pip install <span class="tok-str">"mavpose[mcp] @ git+https://github.com/AyushMaria/MAVPose"</span>
+pip install <span class="tok-str">"mavpose[mcp]"</span>
 <span class="tok-cmt"># plain-English plot assistant</span>
-pip install <span class="tok-str">"mavpose[chat] @ git+https://github.com/AyushMaria/MAVPose"</span></code></pre>
+pip install <span class="tok-str">"mavpose[chat]"</span></code></pre>
             </div>
           </div>
-      <div class="callout callout-warn" style="margin-top: var(--space-6);">
-        <span class="callout-icon">⚠️</span>
-        <p>PyPI still has 0.1.0, the earlier plot-only release, which predates this API. Install from GitHub as shown until 0.2.0 is published.</p>
-      </div>
     </section>
     <section class="api-section" id="formats">
       <h2 class="section-title">
@@ -1582,7 +1578,7 @@ raw.<span class="tok-fn">unit</span>(<span class="tok-str">"GLOBAL_POSITION_INT"
             <div class="code-block-label">Usage</div>
 <div class="code-block">
               <div class="code-block-topbar"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-              <pre><code>pip install <span class="tok-str">"mavpose[chat] @ git+https://github.com/AyushMaria/MAVPose"</span>
+              <pre><code>pip install <span class="tok-str">"mavpose[chat]"</span>
 cp template.env .env    <span class="tok-cmt"># then add OPENROUTER_API_KEY; never commit .env</span>
 mavpose flight.tlog <span class="tok-op">--</span>prompt <span class="tok-str">"Plot altitude and battery voltage"</span>
 <span class="tok-cmt"># interactive mode: ask several questions</span>
