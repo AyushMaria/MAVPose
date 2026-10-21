@@ -7,7 +7,21 @@ uses [Semantic Versioning](https://semver.org/) as described in
 
 ## [0.3.0] — unreleased
 
+### Breaking
+- **The `mavpose` command no longer runs generated code by default.** The
+  model now describes the plot as a JSON [plot spec](docs/guide/chat.md#plot-specs), which
+  MAVPose checks against the log and draws itself. Pass `--code` for the
+  previous behaviour (a generated script run in the restricted subprocess).
+  `PlotCreator` takes `mode="spec"` (default) or `mode="code"`.
+
 ### Added
+- **Plot specs**: plots are saved as `plot.json` next to `plot.png`, and
+  `mavpose LOG --spec plot.json` redraws a spec on any log with no model or
+  API key. Invalid specs (e.g. a misspelt field) go back to the model with
+  the exact error. Axis labels and legends get units from the log.
+  `PlotCreator.plot_from_spec()`, `last_spec`, `spec_path`, and
+  `mavpose.chat.plotspec` (`render_spec`, `validate_spec`, `parse_spec`,
+  `PlotSpecError`).
 - **The plot assistant works with any AI provider**: OpenAI, Anthropic,
   Google Gemini, OpenRouter, Groq, DeepSeek, Mistral, Together, local Ollama
   and LM Studio, or any OpenAI-compatible server. Choose with

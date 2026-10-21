@@ -54,9 +54,9 @@ folder; a variable already set in your shell takes precedence. Never commit
 `.env`.
 
 **Local models** keep your logs' structure on your machine: nothing leaves
-it. Small models work best with specific requests ("plot battery voltage
-over time"); they're less reliable at writing correct plotting code than
-large hosted models.
+it. Because the assistant asks for a short plot spec rather than code, small
+local models work well; specific requests ("plot battery voltage over time")
+work best. Code mode (`--code`) needs a stronger model.
 
 Each run writes `telemetry.parquet`, `plot.py` and `plot.png` next to the
 log, replacing the previous ones. The command reports success only when
@@ -72,12 +72,67 @@ with status 1 if no plot was created.
 2. It exports them to Parquet and gives a language model the
    [schema summary](concepts.md#exporting): columns, units, ranges and unknown counts.
    It never sends the raw log.
-3. The model writes a short pandas + matplotlib script, which MAVPose runs
-   and, if it fails, asks the model to fix (up to `--retries` times).
+3. The model describes the plot as a small JSON **plot spec**: which fields
+   go in which panels, labels, colours, an optional time window. MAVPose
+   checks the spec against the log and draws it with matplotlib. Axis labels
+   get their units from the log. If the spec doesn't fit (a misspelt field,
+   say), the exact error goes back to the model, up to `--retries` attempts.
+
+No code from the model runs. The plot is saved as `plot.png` and its spec as
+`plot.json` next to the log. Ask a follow-up in interactive mode ("make the
+current red", "only the first minute") and the model sees the previous spec.
+
+## Plot specs
+
+```json
+{
+  "title": "Climb and battery",
+  "start_s": null, "end_s": null,
+  "panels": [
+    {"title": "Altitude",
+     "series": [{"msg_type": "GLOBAL_POSITION_INT", "field": "relative_alt"}]},
+    {"title": "Battery",
+     "series": [{"msg_type": "SYS_STATUS", "field": "voltage_battery"},
+                {"msg_type": "SYS_STATUS", "field": "current_battery",
+                 "axis": "right", "color": "tab:red"}]},
+    {"kind": "scatter",
+     "series": [{"msg_type": "GLOBAL_POSITION_INT", "field": "lat", "x_field": "lon"}]}
+  ]
+}
+```
+
+- **Panels** are stacked vertically and share the time axis; up to 6 panels
+  with up to 8 series each.
+- **`kind`** is `line` (default), `scatter` or `step`.
+- Series are plotted against `time_s` unless **`x_field`** names another field
+  of the same message type, as in the position track above.
+- **`axis: "right"`** puts a series on a second y axis, for different units in
+  one panel.
+- **`start_s` / `end_s`** limit the plot to a time window, in seconds from the
+  start of the log.
+
+Specs are plain data, so you can edit them by hand, keep them in version
+control, and redraw them on any log with the same message types, without a
+model or an API key:
+
+```bash
+mavpose next_flight.bin --spec plot.json
+```
+
+From Python, use `mavpose.chat.plotspec.render_spec(spec, frames, units, "plot.png")`.
+
+## Code mode
+
+For a plot a spec can't describe (a histogram, a computed quantity, an FFT),
+add `--code`. The model then writes a pandas + matplotlib script, saved as
+`plot.py`, which MAVPose runs and, if it fails, asks the model to fix.
 
 ## Safety
 
-The generated script runs in a separate process:
+Spec mode runs no generated code: the model's reply is only ever parsed as
+JSON and checked against the log.
+
+In code mode, the generated script runs in a separate process:
 
 - with no API keys in its environment,
 - under an audit hook that blocks process spawning, network access and
