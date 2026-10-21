@@ -143,6 +143,7 @@ MAVPose has two layers. Install only what you need:
 |---|---|---|
 | Clean, unit-correct telemetry in pandas / Parquet (no AI) — ArduPilot and PX4 logs | `pip install mavpose` | 10 packages |
 | …plus the plain-English plot assistant (`mavpose` command) | `pip install "mavpose[chat]"` | ~114 packages |
+| …or an MCP server so AI agents can read your logs (`mavpose-mcp`) | `pip install "mavpose[mcp]"` | 38 packages |
 
 The core never imports the chat layer, so `pip install mavpose` has no LLM, vector-store or plotting dependencies.
 
@@ -245,6 +246,7 @@ OPENROUTER_MODEL=openai/gpt-4o
 MAVPose/
 ├── mavpose/                       # pip install mavpose — core data layer
 │   ├── flightlog.py               # mavpose.load() and FlightLog: the public API
+│   ├── mcp_server.py              # mavpose-mcp: MCP tools for AI agents ([mcp] extra)
 │   ├── log_extractor.py           # LogExtractor: one clock, real units, unknown markers
 │   ├── ulog_reader.py             # PX4 ULog (.ulg) support via pyulog
 │   ├── file_validator.py          # File validation (extension, size, symlink)
@@ -297,6 +299,20 @@ log.to_parquet("telemetry.parquet")
 - [API reference](docs/api/flightlog.md) and [changelog](CHANGELOG.md)
 
 To preview the docs locally: `pip install -e ".[docs]" && mkdocs serve`.
+
+## MCP server for AI agents
+
+```bash
+pip install "mavpose[mcp]"
+mavpose-mcp --root ~/flight-logs
+```
+
+Any MCP-capable assistant or agent framework can then call `list_logs`,
+`summarize_flight`, `list_messages`, `describe_message`, `get_series`,
+`get_log_messages` and `export_parquet`. The server is limited to the
+`--root` folders, read-only except export, and never runs code. Long series
+are downsampled for the agent's context, but min/max/mean always cover every
+sample. See [docs/guide/mcp.md](docs/guide/mcp.md) for client setup.
 
 ## Plot assistant API — `PlotCreator`
 

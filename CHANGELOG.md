@@ -21,6 +21,10 @@ logs. The plot assistant is an optional extra on top.
   be a message counter (.bin) or mix several clocks (.tlog).
 
 ### Added
+- `mavpose-mcp`, an MCP server (`pip install "mavpose[mcp]"`) that gives AI
+  agents seven tools: `list_logs`, `summarize_flight`, `list_messages`,
+  `describe_message`, `get_series`, `get_log_messages` and `export_parquet`.
+  It's read-only except export, limited to allowed folders, and runs no code.
 - `mavpose.load(path) -> FlightLog`: `messages()`, `series()` (indexed by
   `time_s`, unit in `attrs`), `unit()`, `frame()`, `summary()`,
   `to_parquet()`, `unknown_counts`, `stats`, `duration_s`.

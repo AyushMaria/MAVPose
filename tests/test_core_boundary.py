@@ -25,7 +25,8 @@ CHAT_DIR = ROOT / "mavpose" / "chat"
 CORE_MODULES = ["mavpose", "mavpose.log_extractor", "mavpose.file_validator",
                 "mavpose.ulog_reader"]
 CHAT_ONLY_DEPS = ["langchain_openai", "langchain_core", "langchain_chroma",
-                  "chromadb", "openai", "tiktoken", "dotenv", "matplotlib"]
+                  "chromadb", "openai", "tiktoken", "dotenv", "matplotlib",
+                  "mcp"]   # mcp: the [mcp] extra, also never loaded by the core
 
 
 def _run(code: str) -> str:

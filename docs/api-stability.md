@@ -17,6 +17,7 @@ backwards-incompatible way without the process below.
 | `mavpose.validate_mavlink_file()`, `mavpose.FileValidationError` | Input validation |
 | `mavpose.__version__` | Installed version |
 | The `mavpose` command | Plot assistant CLI (needs `[chat]`) |
+| The `mavpose-mcp` command and its tools | Tool names, arguments and result fields (needs `[mcp]`) |
 
 The **data guarantees** are part of the public API too: one shared
 `time_s` axis, unit conversion, unknown-marker filtering, and the message
@@ -25,7 +26,8 @@ these, for example a different time origin for a format, counts as a
 breaking change.
 
 **Not public:** anything whose name starts with `_`; the modules
-`mavpose.ulog_reader` and `mavpose.chat.*` except `mavpose.chat.PlotCreator`;
+`mavpose.ulog_reader`, `mavpose.mcp_server` (use the command and its tools)
+and `mavpose.chat.*` except `mavpose.chat.PlotCreator`;
 and the files under `mavpose/data/`. These may change in any release.
 
 ## What a version number tells you
