@@ -17,7 +17,7 @@ from mavpose.file_validator import FileValidationError
 
 pytest.importorskip("langchain_openai", reason="needs the [chat] extra")
 
-from mavpose.chat.plot_creator import MissingAPIKeyError, PlotCreator  # noqa: E402
+from mavpose.chat.plot_creator import MissingAPIKeyError, PlotCreator, RunResult  # noqa: E402
 
 
 MODEL_VARS = ["MAVPOSE_MODEL", "MAVPOSE_API_KEY", "MAVPOSE_BASE_URL", "OPENROUTER_MODEL",
@@ -152,9 +152,12 @@ class TestRunScript:
         self._write(creator, "raise RuntimeError('always fails')\n")
         with patch.object(creator, "attempt_to_fix_script",
                           return_value="raise RuntimeError('always fails')\n") as fix:
-            _, code = creator.run_script()
+            result = creator.run_script()
         assert fix.call_count == creator.max_retries - 1
-        assert "fix attempts failed" in code
+        assert "fix attempts failed" in result.code
+        assert not result.success and result.plot_path is None
+        assert "always fails" in result.error
+        assert result.attempts == creator.max_retries
 
 
 class TestFixPromptSchema:
@@ -302,7 +305,8 @@ class TestCliOutcome:
         c = MagicMock()
         c.find_relevant_data_types.return_value = ["ATTITUDE"]
         c.extract_dataframes.return_value = {}
-        c.run_script.return_value = ([[(None, ("plot.png",))]], "code")
+        c.run_script.return_value = RunResult(success, "plot.png" if success else None,
+                                              "code", None if success else "boom", 1)
         c.last_success = success
         c.max_retries = 3
         c.plot_path = "/logs/plot.png"
@@ -500,3 +504,54 @@ class TestCliSpecOptions:
             cli.main()
         assert exc.value.code == 1
         assert not (tmp_path / "plot.png").exists()
+
+
+class TestRunResult:
+    """#14: run_script() returns a RunResult instead of a Gradio-era tuple."""
+
+    def _write(self, creator, code):
+        with open(creator.script_path, "w", encoding="utf-8") as fh:
+            fh.write(code)
+        creator.last_code = code
+
+    def test_success(self, creator, log_file):
+        creator.set_logfile_name(str(log_file))
+        code = f"open({creator.plot_path!r}, 'wb').write(b'png')\n"
+        self._write(creator, code)
+        result = creator.run_script()
+        assert result == RunResult(True, creator.plot_path, code, None, 1)
+
+    def test_script_that_saves_nothing(self, creator, log_file):
+        creator.set_logfile_name(str(log_file))
+        self._write(creator, "x = 1\n")
+        with patch.object(creator, "attempt_to_fix_script", return_value="x = 1\n"):
+            result = creator.run_script()
+        assert not result.success and result.plot_path is None
+        assert "did not save the figure" in result.error
+
+    def test_success_after_a_fix_clears_the_error(self, creator, log_file):
+        creator.set_logfile_name(str(log_file))
+        self._write(creator, "raise RuntimeError('first try')\n")
+        good = f"open({creator.plot_path!r}, 'wb').write(b'png')\n"
+
+        def fix(_error):
+            self._write(creator, good)
+            return good
+
+        with patch.object(creator, "attempt_to_fix_script", side_effect=fix):
+            result = creator.run_script()
+        assert result.success and result.error is None
+        assert result.attempts == 2 and result.code == good
+
+    def test_old_tuple_unpacking_still_works_with_a_warning(self, creator, log_file):
+        creator.set_logfile_name(str(log_file))
+        self._write(creator, f"open({creator.plot_path!r}, 'wb').write(b'png')\n")
+        with pytest.warns(DeprecationWarning, match="RunResult"):
+            legacy, code = creator.run_script()
+        assert legacy == [[(None, (creator.plot_path,))]]
+        assert "write(b'png')" in code
+
+    def test_exported_from_mavpose_chat(self):
+        import mavpose.chat
+
+        assert mavpose.chat.RunResult is RunResult

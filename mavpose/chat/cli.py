@@ -154,7 +154,7 @@ def run_once(creator: PlotCreator, prompt: str) -> bool:
 
     # --- Execute ---
     print("⚙️  Running script...")
-    plot_result, code = creator.run_script()
+    code = creator.run_script().code
 
     print("\n" + "─" * 60)
     print("Generated code:")
