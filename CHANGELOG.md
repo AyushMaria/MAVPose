@@ -5,7 +5,7 @@ All notable changes to MAVPose. The format follows
 uses [Semantic Versioning](https://semver.org/) as described in
 [API stability](docs/api-stability.md).
 
-## [0.4.0] — unreleased
+## [0.4.0] — 2026-10-21
 
 ### Changed
 - `PlotCreator.run_script()` returns a `RunResult` (`success`, `plot_path`,
