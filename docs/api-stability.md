@@ -19,6 +19,8 @@ backwards-incompatible way without the process below.
 | The `mavpose` command | Plot assistant CLI (needs `[chat]`) |
 | The `mavpose-mcp` command and its tools | Tool names, arguments and result fields (needs `[mcp]`) |
 
+The **plot spec format** (see [Plot assistant](guide/chat.md#plot-specs)) is public too: a `plot.json` saved by one version can be redrawn by later versions in the same major series.
+
 The **data guarantees** are part of the public API too: one shared
 `time_s` axis, unit conversion, unknown-marker filtering, and the message
 naming described in [Log formats](guide/formats.md). Changing any of
@@ -27,7 +29,7 @@ breaking change.
 
 **Not public:** anything whose name starts with `_`; the modules
 `mavpose.ulog_reader`, `mavpose.mcp_server` (use the command and its tools)
-and `mavpose.chat.*` except `mavpose.chat.PlotCreator`, `mavpose.chat.MissingAPIKeyError` and `mavpose.chat.ModelConfigError`;
+and `mavpose.chat.*` except `mavpose.chat.PlotCreator`, `mavpose.chat.MissingAPIKeyError`, `mavpose.chat.ModelConfigError` and the `mavpose.chat.plotspec` functions;
 and the files under `mavpose/data/`. These may change in any release.
 
 ## What a version number tells you

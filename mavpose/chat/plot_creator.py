@@ -47,6 +47,7 @@ from mavpose.chat.llm import (  # noqa: E402
     build_chat_model,
     resolve_model,
 )
+from mavpose.chat.plotspec import PlotSpecError, parse_spec, render_spec  # noqa: E402
 from mavpose.chat.safe_executor import execute_script  # noqa: E402
 from mavpose.file_validator import VALID_EXTENSIONS, validate_mavlink_file  # noqa: E402
 from mavpose.log_extractor import LogExtractor  # noqa: E402
@@ -54,6 +55,21 @@ from mavpose.log_extractor import LogExtractor  # noqa: E402
 logger = logging.getLogger(__name__)
 
 __all__ = ["PlotCreator", "MissingAPIKeyError", "ModelConfigError", "VALID_EXTENSIONS"]
+
+MODES = ("spec", "code")
+
+SPEC_FORMAT = """{
+  "title": "optional figure title",
+  "start_s": null, "end_s": null,
+  "panels": [
+    {"title": "optional", "kind": "line | scatter | step", "y_label": "optional",
+     "series": [
+       {"msg_type": "EXACT_NAME", "field": "exact_field", "label": "optional",
+        "axis": "left | right", "color": "optional matplotlib colour",
+        "x_field": "optional field of the same msg_type to use instead of time"}
+     ]}
+  ]
+}"""
 
 # Above this size the message-type catalogue lists names only, so it still
 # fits small (e.g. local) models' context windows.
@@ -101,7 +117,12 @@ def _parse_type_list(response: str, known: List[str]) -> List[str]:
 
 class PlotCreator:
     """
-    Two-phase pipeline: extract clean Parquet → LLM writes plotting script.
+    Turn a plain-English request into a plot of a flight log.
+
+    In the default ``"spec"`` mode the model describes the plot as JSON (see
+    :mod:`mavpose.chat.plotspec`) and MAVPose draws it: no generated code
+    runs.  In ``"code"`` mode the model writes a pandas + matplotlib script
+    that runs in a restricted subprocess, for plots a spec can't describe.
 
     Parameters
     ----------
@@ -109,6 +130,10 @@ class PlotCreator:
         Number of self-healing retries when the generated script fails.
     script_timeout:
         Seconds a generated script may run.
+    mode:
+        ``"spec"`` (default) or ``"code"``.
+    dpi:
+        Resolution of the saved plot in spec mode (code mode asks the model for 400).
     model:
         ``provider:model``, e.g. ``"openai:<model>"`` or ``"ollama:llama3.1:8b"``.
         ``None`` uses ``MAVPOSE_MODEL`` or the provider whose API key is set
@@ -129,15 +154,23 @@ class PlotCreator:
         max_retries: int = 3,
         script_timeout: int = 60,
         model: Optional[str] = None,
+        mode: str = "spec",
+        dpi: int = 150,
     ) -> None:
+        if mode not in MODES:
+            raise ValueError(f"mode must be one of {MODES}, not {mode!r}")
         self.model_config: ModelConfig = _load_model_config(model)
+        self.mode: str = mode
+        self.dpi: int = dpi
 
         self.logfile_name: str = ""
         self.script_path: str = ""
         self.plot_path: str = ""
         self.parquet_path: str = ""
+        self.spec_path: str = ""
         self.last_code: str = ""
-        self.last_success: bool = False  # did the last run_script() produce a plot?
+        self.last_spec: Optional[dict] = None   # last spec drawn (spec mode)
+        self.last_success: bool = False  # did the last request produce a plot?
         self.message_types: dict = {}   # schema metadata from schema_only()
         self.max_retries: int = max_retries
         self.script_timeout: int = script_timeout
@@ -221,6 +254,35 @@ class PlotCreator:
             self.model_config, max_tokens=500
         ) | StrOutputParser()
 
+        # ------------------------------------------------------------------
+        # Spec mode: the model describes the plot as JSON; MAVPose draws it.
+        # ------------------------------------------------------------------
+        spec_prompt = PromptTemplate(
+            input_variables=["schema", "history", "human_input", "format", "feedback"],
+            template=(
+                "You design plots of drone flight-log telemetry. You don't write code: "
+                "you describe the plot as JSON and MAVPose draws it.\n\n"
+                "Available data (msg_type -> columns, each with dtype, unit and range):\n"
+                "{schema}\n\n"
+                "Spec format:\n{format}\n\n"
+                "Rules:\n"
+                "- Use msg_type and field names exactly as listed above.\n"
+                "- Values are already in the listed units; axis labels get units automatically.\n"
+                "- Series are plotted against time_s (seconds from log start) unless x_field "
+                "is set, e.g. x_field \"lon\" with field \"lat\" for a position track.\n"
+                "- Put quantities with different units in separate panels, or one on axis "
+                "\"right\".\n"
+                "- Use start_s / end_s only if the request asks for a time window.\n"
+                "- At most 6 panels and 8 series per panel.\n"
+                "- Reply with only the JSON object.\n"
+                "{history}{feedback}\n"
+                "Request: {human_input}"
+            ),
+        )
+        self._spec_chain = spec_prompt | build_chat_model(
+            self.model_config, max_tokens=1500
+        ) | StrOutputParser()
+
     # ------------------------------------------------------------------
     # Static helpers
     # ------------------------------------------------------------------
@@ -261,6 +323,7 @@ class PlotCreator:
         self.script_path = os.path.join(base_dir, "plot.py")
         self.plot_path = os.path.join(base_dir, "plot.png")
         self.parquet_path = os.path.join(base_dir, "telemetry.parquet")
+        self.spec_path = os.path.join(base_dir, "plot.json")
         self._extractor = LogExtractor(filename)
 
     # ------------------------------------------------------------------
@@ -353,7 +416,62 @@ class PlotCreator:
         return chosen
 
     # ------------------------------------------------------------------
-    # Phase 2 — LLM plot generation
+    # Phase 2 (spec mode) — the model describes the plot, MAVPose draws it
+    # ------------------------------------------------------------------
+
+    def plot_from_spec(self, human_input: str, schema_summary: Dict[str, dict]) -> bool:
+        """
+        Ask the model for a plot spec, check it, and draw it to :attr:`plot_path`.
+
+        If the spec is invalid (e.g. a misspelt field), the error goes back to
+        the model, up to ``max_retries`` attempts in all.  The spec that was
+        drawn is saved to :attr:`spec_path` and kept in :attr:`last_spec`;
+        the next request sees it, so follow-ups like "make it red" work.
+
+        Returns
+        -------
+        True if a plot was saved (also stored in :attr:`last_success`).
+        """
+        if not self._extractor or not self._extractor.frames:
+            raise RuntimeError("Call extract_dataframes() first.")
+        self.last_success = False
+        if os.path.lexists(self.plot_path):
+            os.remove(self.plot_path)
+
+        history = ""
+        if self.last_spec is not None:
+            history = ("\nThe previous plot's spec, which the request may refer to:\n"
+                       + json.dumps(self.last_spec) + "\n")
+        feedback = ""
+        reply = ""
+        for attempt in range(1, self.max_retries + 1):
+            reply = self._spec_chain.invoke({
+                "schema": json.dumps(schema_summary, indent=2),
+                "history": history,
+                "human_input": human_input,
+                "format": SPEC_FORMAT,
+                "feedback": feedback,
+            })
+            logger.debug("Spec reply (attempt %d):\n%s", attempt, reply)
+            self.last_code = reply.strip()
+            try:
+                spec = render_spec(parse_spec(reply), self._extractor.frames,
+                                   self._extractor.units, self.plot_path, dpi=self.dpi)
+            except PlotSpecError as exc:
+                logger.warning("Spec attempt %d/%d rejected: %s", attempt, self.max_retries, exc)
+                feedback = (f"\nYour previous reply was:\n{reply}\n"
+                            f"It could not be drawn: {exc}\nReply with a corrected spec.\n")
+                continue
+            with open(self.spec_path, "w", encoding="utf-8") as fh:
+                json.dump(spec, fh, indent=2)
+            self.last_spec = spec
+            self.last_code = json.dumps(spec, indent=2)
+            self.last_success = True
+            return True
+        return False
+
+    # ------------------------------------------------------------------
+    # Phase 2 (code mode) — LLM plot generation
     # ------------------------------------------------------------------
 
     def create_plot(
