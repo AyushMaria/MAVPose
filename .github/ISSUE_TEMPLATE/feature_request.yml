@@ -1,0 +1,26 @@
+name: Feature request
+description: Suggest a new log format, message type, API, MCP tool or plot-assistant feature.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: Describe the problem or workflow first, before the solution. For example, "I compare EKF innovations across 50 logs after every test day."
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would help?
+      description: The API, option or tool you have in mind, if any.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What do you do today instead?
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contributing
+      options:
+        - label: I'd be willing to work on this with some guidance.

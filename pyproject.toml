@@ -9,6 +9,25 @@ description = "Clean, unit-correct telemetry from drone flight logs (MAVLink .tl
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.10"
+keywords = [
+    "drone", "uav", "flight-log", "telemetry", "ardupilot", "px4", "mavlink",
+    "dataflash", "ulog", "tlog", "pymavlink", "pandas", "parquet", "mcp",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Visualization",
+]
 # Core data layer only. The chat assistant is the optional [chat] extra.
 dependencies = [
     "pymavlink>=2.4.48",  # 2.4.42+: DataFlash FMTU units; 2.4.48+: resync after corrupt .tlog data
@@ -32,9 +51,21 @@ mcp = ["mcp>=2.3,<3"]
 docs = ["mkdocs>=1.6,<2", "mkdocs-material>=9", "mkdocstrings[python]>=0.25"]
 dev = ["mavpose[chat,mcp]", "pytest>=7", "pytest-cov", "ruff"]
 
+[project.urls]
+Homepage = "https://ayushmaria.github.io/MAVPose/"
+Documentation = "https://ayushmaria.github.io/MAVPose/api-reference.html"
+Source = "https://github.com/AyushMaria/MAVPose"
+Issues = "https://github.com/AyushMaria/MAVPose/issues"
+Changelog = "https://github.com/AyushMaria/MAVPose/blob/master/CHANGELOG.md"
+
 [project.scripts]
 mavpose = "mavpose.chat.cli:main"
 mavpose-mcp = "mavpose.mcp_server:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["mavpose"]
+
+[tool.ruff.lint]
+# Same rules CI uses, so a plain `ruff check` matches CI.
+select = ["E", "F", "W", "B"]
+ignore = ["E501"]

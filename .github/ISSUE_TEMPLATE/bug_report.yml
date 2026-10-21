@@ -1,0 +1,39 @@
+name: Other bug
+description: Something else isn't working, in the library, the MCP server or the plot assistant.
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part of MAVPose?
+      options:
+        - Library (mavpose.load, FlightLog, LogExtractor)
+        - MCP server (mavpose-mcp)
+        - Plot assistant (mavpose command)
+        - Docs
+        - Installation
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps or code to reproduce
+      description: For the plot assistant, include the prompt and the output of `mavpose ... --verbose`. Remove your API key from anything you paste.
+  - type: input
+    id: version
+    attributes:
+      label: MAVPose version
+      description: Output of `python -c "import mavpose; print(mavpose.__version__)"`
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Python version and OS
+      placeholder: "e.g. Python 3.12, Ubuntu 24.04"

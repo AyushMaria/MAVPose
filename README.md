@@ -340,12 +340,12 @@ result, code = creator.run_script()
 
 ```bash
 pip install -e ".[dev]"
-pytest tests/ -v --cov=mavpose
+python -m pytest
 ```
 
 To lint:
 ```bash
-ruff check mavpose tests tools
+ruff check .
 ```
 
 In a core-only install (`pip install -e .`), the chat tests skip themselves.
@@ -361,9 +361,15 @@ In a core-only install (`pip install -e .`), the chat tests skip themselves.
 | `ModuleNotFoundError: pyarrow` | Missing dependency | Run `pip install mavpose` |
 | "The MAVPose chat assistant needs extra packages" | Core-only install | Run `pip install "mavpose[chat]"` |
 | Plot not generated after N retries | LLM script failed repeatedly | Try a more specific prompt; use `--verbose` to inspect errors |
-| `FileValidationError` | Wrong file type or empty file | Only `.tlog`, `.bin`, `.log` files ≤ 200 MB are accepted |
+| `FileValidationError` | Wrong file type or empty file | Only `.tlog`, `.bin`, `.log` and `.ulg` files ≤ 200 MB are accepted |
 | `ValueError: None of the requested message types were found` | Semantic search returned types not in log | Use `--verbose` to see what types the log actually contains |
 | ChromaDB version conflict | Stale venv | Delete `venv/` and reinstall with `pip install "mavpose[chat]"` |
+
+---
+
+## Contributing
+
+Contributions are welcome, from bug reports about logs MAVPose reads wrongly to code. See [CONTRIBUTING.md](CONTRIBUTING.md) to get set up, and the [`good first issue`](https://github.com/AyushMaria/MAVPose/labels/good%20first%20issue) label for a place to start. Everyone taking part follows the [code of conduct](CODE_OF_CONDUCT.md).
 
 ---
 

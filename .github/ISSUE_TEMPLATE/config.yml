@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security problem
+    url: https://github.com/AyushMaria/MAVPose/blob/master/CONTRIBUTING.md#reporting-bugs-and-security-issues
+    about: Please report security problems by email, not in a public issue.
+  - name: Documentation
+    url: https://github.com/AyushMaria/MAVPose/tree/master/docs
+    about: Guides for time, units, unknown values, log formats, the MCP server and the plot assistant.
