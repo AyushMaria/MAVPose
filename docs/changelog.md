@@ -5,7 +5,7 @@ All notable changes to MAVPose. The format follows
 uses [Semantic Versioning](https://semver.org/) as described in
 [API stability](api-stability.md).
 
-## [0.2.0] — unreleased
+## [0.2.0] — 2026-10-21
 
 The core is now a standalone, trustworthy data layer for ArduPilot and PX4
 logs. The plot assistant is an optional extra on top.
@@ -19,6 +19,8 @@ logs. The plot assistant is an optional extra on top.
   Pass `filter_unknown=False` to keep them.
 - `time_s` is now one shared clock for all message types. In 0.1 it could
   be a message counter (.bin) or mix several clocks (.tlog).
+- Requires **pymavlink 2.4.48 or newer** (was 2.4.37). Older versions
+  can't read DataFlash unit records or recover from corrupt `.tlog` data.
 
 ### Added
 - `mavpose-mcp`, an MCP server (`pip install "mavpose[mcp]"`) that gives AI
