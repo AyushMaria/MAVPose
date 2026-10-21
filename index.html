@@ -397,7 +397,7 @@
     <div class="hero__inner">
       <div class="hero__badge">
         <span class="hero__badge-dot"></span>
-        v0.2 — PX4 logs and an MCP server for AI agents
+        v0.3 — any AI provider, and plots without generated code
       </div>
 
       <h1 class="hero__title">
@@ -549,10 +549,10 @@
         <p class="arch__phase-label">mavpose[chat] — <code style="font-family:var(--font-mono)">mavpose</code></p>
         <h3 class="arch__phase-title">Plain-English plot assistant</h3>
         <div class="arch__steps">
-          <div class="arch__step"><span class="arch__step-icon">🔍</span><div><strong>Finds the right messages</strong>Semantic search over the log's schema picks the relevant message types.</div></div>
-          <div class="arch__step"><span class="arch__step-icon">📋</span><div><strong>Model sees a schema, not the log</strong>Columns, units, ranges and unknown counts from a clean Parquet export.</div></div>
-          <div class="arch__step"><span class="arch__step-icon">🔄</span><div><strong>Self-healing scripts</strong>The model writes pandas + matplotlib and fixes failures from the traceback, up to <code style="font-family:var(--font-mono);font-size:0.85em">--retries</code> times.</div></div>
-          <div class="arch__step"><span class="arch__step-icon">🛡️</span><div><strong>Restricted runner</strong>No API keys in the environment, an audit hook blocking processes, network and stray writes, plus CPU, memory and time limits. Defence in depth, not a security boundary.</div></div>
+          <div class="arch__step"><span class="arch__step-icon">🔌</span><div><strong>Any AI provider</strong>OpenAI, Anthropic, Gemini, OpenRouter, Groq, DeepSeek, Mistral, Together, or local Ollama / LM Studio.</div></div>
+          <div class="arch__step"><span class="arch__step-icon">📋</span><div><strong>Model sees a schema, not the log</strong>Message types, columns, units and ranges. It picks the data it needs.</div></div>
+          <div class="arch__step"><span class="arch__step-icon">🧾</span><div><strong>JSON plot specs, no generated code</strong>The model describes the plot; MAVPose checks it against the log and draws it, with units on every axis.</div></div>
+          <div class="arch__step"><span class="arch__step-icon">🔁</span><div><strong>Reproducible</strong>Every plot is saved as <code style="font-family:var(--font-mono);font-size:0.85em">plot.json</code>; <code style="font-family:var(--font-mono);font-size:0.85em">--spec</code> redraws it on any log, no model or key needed.</div></div>
         </div>
       </div>
     </div>
@@ -595,9 +595,9 @@
           <tr><td>Data</td><td>pandas ≥ 2.0 + pyarrow ≥ 14.0</td></tr>
           <tr><td>Units &amp; markers</td><td>Generated from MAVLink XML and PX4 msg definitions</td></tr>
           <tr><td>MCP server</td><td>mcp ≥ 2.3 (stdio)</td></tr>
-          <tr><td>Plot assistant</td><td>LangChain + ChromaDB via OpenRouter</td></tr>
+          <tr><td>Plot assistant</td><td>LangChain · any provider, incl. local models</td></tr>
           <tr><td>Plotting</td><td>matplotlib ≥ 3.8</td></tr>
-          <tr><td>Script runner</td><td>Audit hook + resource limits</td></tr>
+          <tr><td>Plots</td><td>JSON specs drawn by MAVPose (code mode: restricted runner)</td></tr>
           <tr><td>Lint / CI</td><td>ruff + pytest, Python 3.10–3.13</td></tr>
         </tbody>
       </table>
@@ -670,16 +670,19 @@
       </div>
 
       <div style="margin-top:var(--space-6)">
-        <p style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-3)"><strong style="color:var(--color-text)">Plot assistant CLI</strong> — needs <code style="font-family:var(--font-mono);font-size:0.9em">[chat]</code> and an <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" style="color:var(--color-primary)">OpenRouter API key</a> in <code style="font-family:var(--font-mono);font-size:0.9em">.env</code> (never commit it)</p>
+        <p style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-3)"><strong style="color:var(--color-text)">Plot assistant CLI</strong> — needs <code style="font-family:var(--font-mono);font-size:0.9em">[chat]</code> and a key for your AI provider (or a local model)</p>
         <div class="code-block" style="font-size:var(--text-xs)">
           <pre style="margin:0;white-space:pre-wrap"><span class="code-cmd">mavpose</span> <span class="t-arg">log_file</span> [options]
 
   <span class="t-arg">log_file</span>            MAVLink .tlog, ArduPilot .bin/.log, or PX4 .ulg
   <span class="t-dim">-p, --prompt TEXT</span>   Plot request (omit for interactive mode)
-  <span class="t-dim">-r, --retries N</span>     Max self-healing retries (default: 3)
+  <span class="t-dim">-m, --model P:M</span>     provider:model, e.g. anthropic:&lt;model&gt;, ollama:llama3.1:8b
+  <span class="t-dim">--spec FILE</span>         Redraw a saved plot.json; no model needed
+  <span class="t-dim">--code</span>              Have the model write a Python script instead
+  <span class="t-dim">-r, --retries N</span>     Attempts per request (default: 3)
   <span class="t-dim">-v, --verbose</span>       Enable debug logging
 
-<span class="code-comment"># Writes telemetry.parquet, plot.py and plot.png next to the log</span></pre>
+<span class="code-comment"># Writes plot.png, plot.json and telemetry.parquet next to the log</span></pre>
         </div>
       </div>
     </div>
@@ -690,28 +693,28 @@
 <section class="section" id="models" style="padding-top:0">
   <div class="container">
     <p class="section__label">Plot assistant models</p>
-    <h2 class="section__title">Swap models with one line</h2>
-    <p class="section__sub">The assistant routes through <a href="https://openrouter.ai" target="_blank" rel="noopener noreferrer" style="color:var(--color-primary)">OpenRouter</a>, so any model on the platform works. Set <code style="font-family:var(--font-mono);font-size:0.9em;color:var(--color-primary)">OPENROUTER_MODEL</code> in your <code style="font-family:var(--font-mono);font-size:0.9em">.env</code>.</p>
+    <h2 class="section__title">Bring any AI provider</h2>
+    <p class="section__sub">Set your provider's key and choose a model with <code style="font-family:var(--font-mono);font-size:0.9em;color:var(--color-primary)">--model provider:model</code> or <code style="font-family:var(--font-mono);font-size:0.9em;color:var(--color-primary)">MAVPOSE_MODEL</code>. Also works with OpenRouter, Groq, DeepSeek, Mistral, Together, LM Studio and any OpenAI-compatible server. Local models keep everything on your machine.</p>
     <div class="models__grid">
+      <div class="model-card">
+        <span class="model-card__tag model-card__tag--alt">Cloud</span>
+        <p class="model-card__name">openai</p>
+        <p class="model-card__desc"><code style="font-family:var(--font-mono);font-size:0.9em">OPENAI_API_KEY</code><br><code style="font-family:var(--font-mono);font-size:0.9em">openai:&lt;model&gt;</code></p>
+      </div>
+      <div class="model-card">
+        <span class="model-card__tag model-card__tag--alt">Cloud</span>
+        <p class="model-card__name">anthropic</p>
+        <p class="model-card__desc"><code style="font-family:var(--font-mono);font-size:0.9em">ANTHROPIC_API_KEY</code><br><code style="font-family:var(--font-mono);font-size:0.9em">anthropic:&lt;model&gt;</code></p>
+      </div>
+      <div class="model-card">
+        <span class="model-card__tag model-card__tag--alt">Cloud</span>
+        <p class="model-card__name">gemini</p>
+        <p class="model-card__desc"><code style="font-family:var(--font-mono);font-size:0.9em">GEMINI_API_KEY</code><br><code style="font-family:var(--font-mono);font-size:0.9em">gemini:&lt;model&gt;</code></p>
+      </div>
       <div class="model-card model-card--default">
-        <span class="model-card__tag">Default</span>
-        <p class="model-card__name">z-ai/glm-5.1</p>
-        <p class="model-card__desc">Long-horizon agentic coding. Best for complex multi-step plots.</p>
-      </div>
-      <div class="model-card">
-        <span class="model-card__tag model-card__tag--alt">Z.ai</span>
-        <p class="model-card__name">z-ai/glm-5</p>
-        <p class="model-card__desc">Flagship model for complex systems.</p>
-      </div>
-      <div class="model-card">
-        <span class="model-card__tag model-card__tag--alt">Z.ai</span>
-        <p class="model-card__name">z-ai/glm-4.5</p>
-        <p class="model-card__desc">MoE, 355B params, switchable reasoning.</p>
-      </div>
-      <div class="model-card">
-        <span class="model-card__tag model-card__tag--alt">OpenAI</span>
-        <p class="model-card__name">openai/gpt-4o</p>
-        <p class="model-card__desc">Reliable fallback for general-purpose plotting.</p>
+        <span class="model-card__tag">Local</span>
+        <p class="model-card__name">ollama</p>
+        <p class="model-card__desc"><code style="font-family:var(--font-mono);font-size:0.9em">no key needed</code><br><code style="font-family:var(--font-mono);font-size:0.9em">ollama:llama3.1:8b</code></p>
       </div>
     </div>
   </div>

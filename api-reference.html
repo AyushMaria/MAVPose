@@ -979,7 +979,7 @@
       <div class="page-header-meta">
         <div class="meta-chip">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-          v0.2.0
+          v0.3.0
         </div>
         <div class="meta-chip">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -1572,17 +1572,17 @@ raw.<span class="tok-fn">unit</span>(<span class="tok-str">"GLOBAL_POSITION_INT"
         Plot assistant — <code>mavpose</code>
         <a href="#chat" class="section-anchor" aria-label="Link to section">#</a>
       </h2>
-      <p class="section-desc">Turns a plain-English request into a plot. Needs <code>[chat]</code>.</p>
+      <p class="section-desc">Turns a plain-English request into a plot, with any AI provider. Needs <code>[chat]</code>.</p>
 
       <div>
             <div class="code-block-label">Usage</div>
 <div class="code-block">
               <div class="code-block-topbar"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
               <pre><code>pip install <span class="tok-str">"mavpose[chat]"</span>
-cp template.env .env    <span class="tok-cmt"># then add OPENROUTER_API_KEY; never commit .env</span>
-mavpose flight.tlog <span class="tok-op">--</span>prompt <span class="tok-str">"Plot altitude and battery voltage"</span>
-<span class="tok-cmt"># interactive mode: ask several questions</span>
-mavpose flight.ulg</code></pre>
+export ANTHROPIC_API_KEY=...          <span class="tok-cmt"># or OPENAI_API_KEY, GEMINI_API_KEY, … (or a .env file)</span>
+mavpose flight.tlog <span class="tok-op">--</span>model anthropic:&lt;model&gt; <span class="tok-op">-</span>p <span class="tok-str">"Plot altitude and battery"</span>
+mavpose flight.ulg <span class="tok-op">--</span>model ollama:llama3.1:8b   <span class="tok-cmt"># local; interactive mode</span>
+mavpose next_flight.bin <span class="tok-op">--</span>spec plot.json         <span class="tok-cmt"># redraw, no model</span></code></pre>
             </div>
           </div>
       <div style="margin-top: var(--space-6);"></div>
@@ -1591,25 +1591,52 @@ mavpose flight.ulg</code></pre>
         <tbody>
           <tr><td><span class="cli-flag">log_file</span></td><td>—</td><td><code>path</code></td><td><span class="p-required">Required</span></td><td>MAVLink <code>.tlog</code>, ArduPilot <code>.bin</code>/<code>.log</code>, or PX4 <code>.ulg</code>.</td></tr>
           <tr><td><span class="cli-flag">--prompt</span></td><td><span class="cli-flag">-p</span></td><td><code>str</code></td><td><code>None</code></td><td>Plot request. Omit for interactive mode.</td></tr>
-          <tr><td><span class="cli-flag">--retries</span></td><td><span class="cli-flag">-r</span></td><td><code>int</code></td><td><code>3</code></td><td>Maximum self-healing retries when the generated script fails.</td></tr>
+          <tr><td><span class="cli-flag">--model</span></td><td><span class="cli-flag">-m</span></td><td><code>str</code></td><td><code>None</code></td><td><code>provider:model</code>. Default: <code>MAVPOSE_MODEL</code>, or the provider whose key is set.</td></tr>
+          <tr><td><span class="cli-flag">--spec</span></td><td>—</td><td><code>path</code></td><td><code>None</code></td><td>Redraw a saved <code>plot.json</code> on this log. No model or key needed.</td></tr>
+          <tr><td><span class="cli-flag">--code</span></td><td>—</td><td><code>flag</code></td><td><code>False</code></td><td>Have the model write a Python script instead of a plot spec.</td></tr>
+          <tr><td><span class="cli-flag">--retries</span></td><td><span class="cli-flag">-r</span></td><td><code>int</code></td><td><code>3</code></td><td>Attempts per request when the spec or script fails.</td></tr>
           <tr><td><span class="cli-flag">--verbose</span></td><td><span class="cli-flag">-v</span></td><td><code>flag</code></td><td><code>False</code></td><td>Enable <code>DEBUG</code> logging.</td></tr>
         </tbody>
       </table>
       <div style="margin-top: var(--space-6);"></div>
       <table class="cli-table">
-        <thead><tr><th>Variable</th><th>Required</th><th>Default</th><th>Description</th></tr></thead>
+        <thead><tr><th>Provider</th><th>Key variable</th><th>Notes</th></tr></thead>
         <tbody>
-          <tr><td><code>OPENROUTER_API_KEY</code></td><td><span class="p-required">Required</span></td><td>—</td><td>Your OpenRouter API key, for the model and embeddings.</td></tr>
-          <tr><td><code>OPENROUTER_MODEL</code></td><td><span class="p-optional">Optional</span></td><td><code>z-ai/glm-5.1</code></td><td>Any OpenRouter model slug.</td></tr>
+          <tr><td><code>openai</code></td><td><code>OPENAI_API_KEY</code></td><td></td></tr>
+          <tr><td><code>anthropic</code></td><td><code>ANTHROPIC_API_KEY</code></td><td>native client</td></tr>
+          <tr><td><code>gemini</code></td><td><code>GEMINI_API_KEY</code> / <code>GOOGLE_API_KEY</code></td><td></td></tr>
+          <tr><td><code>openrouter</code></td><td><code>OPENROUTER_API_KEY</code></td><td>model optional (default <code>z-ai/glm-5.1</code>, or <code>OPENROUTER_MODEL</code>)</td></tr>
+          <tr><td><code>groq, deepseek, mistral, together</code></td><td><code>GROQ_API_KEY</code>, <code>DEEPSEEK_API_KEY</code>, <code>MISTRAL_API_KEY</code>, <code>TOGETHER_API_KEY</code></td><td></td></tr>
+          <tr><td><code>ollama, lmstudio</code></td><td>none</td><td>local, <code>localhost:11434</code> / <code>localhost:1234</code></td></tr>
+          <tr><td><code>openai-compatible</code></td><td><code>MAVPOSE_API_KEY</code> (optional)</td><td>needs <code>MAVPOSE_BASE_URL</code></td></tr>
         </tbody>
       </table>
       <div class="callout callout-info" style="margin-top: var(--space-6);">
+        <span class="callout-icon">⚙️</span>
+        <p>Choose with <code>--model provider:model</code> or <code>MAVPOSE_MODEL</code>. Without either, OpenRouter is used if <code>OPENROUTER_API_KEY</code> is set (as in 0.2), otherwise the one provider whose key is set. <code>MAVPOSE_BASE_URL</code> and <code>MAVPOSE_API_KEY</code> override the endpoint and key. Settings can live in a <code>.env</code> file in the folder you run <code>mavpose</code> from.</p>
+      </div>
+      <div style="margin-top: var(--space-6);"></div>
+      <div>
+            <div class="code-block-label">Plot spec (saved as plot.json)</div>
+<div class="code-block">
+              <div class="code-block-topbar"><span class="code-lang">json</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre><code>{
+  <span class="tok-str">"title"</span>: <span class="tok-str">"Climb and battery"</span>,
+  <span class="tok-str">"panels"</span>: [
+    {<span class="tok-str">"series"</span>: [{<span class="tok-str">"msg_type"</span>: <span class="tok-str">"GLOBAL_POSITION_INT"</span>, <span class="tok-str">"field"</span>: <span class="tok-str">"relative_alt"</span>}]},
+    {<span class="tok-str">"series"</span>: [{<span class="tok-str">"msg_type"</span>: <span class="tok-str">"SYS_STATUS"</span>, <span class="tok-str">"field"</span>: <span class="tok-str">"voltage_battery"</span>},
+                {<span class="tok-str">"msg_type"</span>: <span class="tok-str">"SYS_STATUS"</span>, <span class="tok-str">"field"</span>: <span class="tok-str">"current_battery"</span>, <span class="tok-str">"axis"</span>: <span class="tok-str">"right"</span>}]}
+  ]
+}</code></pre>
+            </div>
+          </div>
+      <div class="callout callout-info" style="margin-top: var(--space-6);">
         <span class="callout-icon">📋</span>
-        <p>MAVPose finds the message types relevant to your question, exports them to Parquet and gives the model only the <a href="#fl-summary">summary()</a> schema, never the raw log. The model writes a pandas + matplotlib script; <code>telemetry.parquet</code>, <code>plot.py</code> and <code>plot.png</code> are written next to the log.</p>
+        <p>The model sees the log's message types and the <a href="#fl-summary">summary()</a> schema, never the raw log, and replies with a plot spec: up to 6 panels sharing the time axis, <code>line</code> / <code>scatter</code> / <code>step</code>, a right-hand axis, colours, <code>x_field</code> for tracks, and a <code>start_s</code>/<code>end_s</code> window. MAVPose validates it against the log, sends errors back to the model, and draws it with units from the log. <code>mavpose.chat.render_spec(spec, frames, units, path)</code> draws specs from Python; <code>mavpose.chat.PlotCreator</code> is the class behind the command.</p>
       </div>
       <div class="callout callout-warn" style="margin-top: var(--space-6);">
         <span class="callout-icon">🛡️</span>
-        <p>The generated script runs in a separate process with no API keys in its environment, under an audit hook that blocks process spawning, network access and writes outside the output folder, and with CPU, memory and time limits. This is defence in depth, <strong>not a security boundary</strong>: for untrusted logs or prompts, run MAVPose in a container too. <code>mavpose.chat.PlotCreator</code> is the public class behind the command.</p>
+        <p>By default no model-written code runs. With <code>--code</code>, the generated script runs in a separate process with no API keys in its environment, under an audit hook that blocks process spawning, network access and writes outside the output folder, and with CPU, memory and time limits. This is defence in depth, <strong>not a security boundary</strong>: for untrusted logs or prompts in code mode, run MAVPose in a container too.</p>
       </div>
     </section>
     <section class="api-section" id="stability">
@@ -1627,7 +1654,7 @@ mavpose flight.ulg</code></pre>
           <tr><td><code>mavpose.LogExtractor</code></td><td>All methods and properties documented above</td></tr>
           <tr><td><code>mavpose.validate_mavlink_file()</code>, <code>mavpose.FileValidationError</code></td><td>Input validation</td></tr>
           <tr><td><code>mavpose.__version__</code></td><td>Installed version</td></tr>
-          <tr><td>The <code>mavpose</code> command</td><td>Plot assistant CLI (needs [chat])</td></tr>
+          <tr><td>The <code>mavpose</code> command and the plot spec format</td><td>Plot assistant CLI (needs [chat]); saved <code>plot.json</code> files keep working</td></tr>
           <tr><td>The <code>mavpose-mcp</code> command and its tools</td><td>Tool names, arguments and result fields (needs [mcp])</td></tr>
         </tbody>
       </table>
