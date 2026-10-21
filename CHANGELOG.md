@@ -5,7 +5,7 @@ All notable changes to MAVPose. The format follows
 uses [Semantic Versioning](https://semver.org/) as described in
 [API stability](docs/api-stability.md).
 
-## [0.3.0] — unreleased
+## [0.3.0] — 2026-10-21
 
 ### Breaking
 - **The `mavpose` command no longer runs generated code by default.** The
@@ -38,7 +38,7 @@ uses [Semantic Versioning](https://semver.org/) as described in
   barometer altitude with battery voltage") no longer miss types, and no
   embeddings API is needed, which is what made other providers possible.
 - Setups with only `OPENROUTER_API_KEY` (and optionally `OPENROUTER_MODEL`)
-  work exactly as before.
+  need no changes: the same provider and model are chosen as in 0.2.
 
 ### Removed
 - ChromaDB and `langchain-chroma` are no longer dependencies of
